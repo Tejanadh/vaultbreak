@@ -1,6 +1,6 @@
 # Status (2026-10-04)
 
-I only kept incidents I had already marked verified, and only EVM. The notes file those marks came from is not in this repo. I HTTP-checked the source links on this date. Two Medium posts return 403 to the checker, so those two links are still unchecked.
+The corpus started as public EVM incidents. The notes file those marks came from is not in this repo. Source links were HTTP-checked on this date. Two Medium posts return 403 to the checker, so those two links are still unchecked.
 
 ## Included (21)
 
@@ -56,18 +56,28 @@ I only kept incidents I had already marked verified, and only EVM. The notes fil
 * No detector was attempted for rounding, oracle, governance, bridge-config or compiler-bug
   classes; they are not reliably expressible as a single-function pattern.
 
+## On-chain checks (step 1, 2026-10-04)
+
+Receipts were read with `eth_getTransactionByHash` and `eth_getTransactionReceipt` on `https://eth.drpc.org`. `https://rpc.mevblocker.io` returned the same block, from, to, status, and log count for every stored hash. `https://ethereum-rpc.publicnode.com` returned some transactions and null receipts, so it was not used for receipts. `needs_review` was not changed.
+
+| Entry | Stored, with block time (UTC) | Left out |
+| VB-2023-0012 Euler | DAI `0xc310a0af…111d` block 16817996, 2023-03-13T08:50:59Z; WETH `0x47ac3527…088f` block 16818024, 2023-03-13T08:56:35Z; wstETH `0x62bd3d31…18c4` block 16818062, 2023-03-13T09:04:23Z | eDAI, eWETH, ewstETH are receipt logs. CertiK's attack contract `0x583c2163…6c72` is not from, to, or a log on these three, so it is omitted. BlockSec's WBTC, USDC, and stETH hashes are shorter than 32 bytes and were not queried. CertiK's eWBTC and eUSDC addresses have no confirmed tx here. |
+| VB-2022-0009 Nomad | setup `0xed26708a…35f0` block 15258799, 2022-08-01T20:24:53Z; process `0xa5fe9d04…5460` block 15259101, 2022-08-01T21:32:31Z | Replica and BridgeRouter proxies and WBTC are on the receipts. Replica logic and BridgeRouter logic are not receipt logs, and the Replica EIP-1967 implementation slot at block 15259101 was zero, so those two addresses are omitted. `0x53fd9277…24cad` is a 2022-06-21 transaction, not stored as an August attack tx. |
+| VB-2025-0025 Bybit | masterCopy `0x46deef0f…7882` block 21895238, 2025-02-21T14:13:35Z; four later hashes in block 21895251, 2025-02-21T14:16:11Z | Safe, trojan input address, backdoor (slot 0 at end of 21895238), previous masterCopy (slot 0 at end of 21895237). The ETH-labeled hash has msg.value 0 and no logs. Token symbols on the later logs were not read. |
+| VB-2024-0022 Ronin | `0x26195700…a6cb` block 20468679, 2024-08-06T09:37:23Z; `0xbce5b854…60ad8` block 20468848, 2024-08-06T10:11:47Z | Bridge is a log on both. The second receipt's USDC Transfer is 1,998,046.875 USDC. Beosin audit-transaction hashes were not stored. |
+
 ## Known data gaps
 
-* Radiant (VB-2024-0018) is the only entry with node-checked tx hashes and contract addresses. Every other `affected_contracts` / `attack_txs` list is still empty. No Foundry mainnet replay (`replay_status: unverified` everywhere, including Radiant).
+* Radiant (VB-2024-0018) still has the only Arbitrum node check. Euler, Nomad, Bybit, and Ronin now have Ethereum hashes from the calls above. The other 16 entries still have empty `affected_contracts` and `attack_txs`. No Foundry mainnet replay (`replay_status: unverified` everywhere, including Radiant).
 * `python scripts/vb.py` queries `build/vaultbreak.sqlite` (`list`, `show`, `search`).
 * Dates differ by about a day between DeFiHackLabs and other sources for several incidents; the
-  entry's `confidence.notes` says so.
-* `date_source` is `aggregator` or `postmortem`, never `tx`, because no tx hashes were verified.
+  entry's `confidence.notes` says so. Nomad's stored blocks are 2022-08-01 UTC.
+* `date_source: tx` is set on Euler, Nomad, Bybit, and Ronin, because those block timestamps fall on the entry date. Radiant's `date_source` was left as it was.
 * OAK taxonomy mapping not done (not verified).
 
 ## Next steps (suggested)
 
 1. Human review of all 21 entries (set `needs_review: false`, fill `human_reviewed_by`).
-2. Explorer-verified addresses and tx hashes for the other 20 entries. Radiant is the pattern: read the node, do not copy a hash you have not fetched.
+2. Explorer-verified addresses and tx hashes for the 16 entries that are still empty. Radiant, Euler, Nomad, Bybit, and Ronin are the pattern: read the node, do not copy a hash that was not fetched.
 3. More detectors where a reliable shape exists (e.g. zero-value root in initialisers).
 4. Foundry replay harness for ~10 entries; Pagefind for full-text search.

@@ -4,7 +4,7 @@ id: VB-2025-0025
 slug: bybit-safe-2025-02
 title: Bybit - Safe delegatecall overwrote the proxy's implementation slot after signer phishing
 date: '2025-02-21'
-date_source: postmortem
+date_source: tx
 chains:
 - ethereum
 language: solidity
@@ -36,8 +36,34 @@ preconditions:
 - signers_can_be_deceived_about_tx_content
 - wallet_permits_delegatecall_operation
 - proxy_keeps_implementation_in_slot_0
-affected_contracts: []
-attack_txs: []
+affected_contracts:
+- chain: ethereum
+  address: '0x1db92e2eebc8e0c075a02bea49a2935bcd2dfcf4'
+  role: callee of all five confirmed transactions; log address on the masterCopy transaction. DeFiHackLabs labels it the Bybit cold wallet
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x96221423681a6d52e184d440a8efcebb105c7242'
+  role: first address word of the masterCopy transaction input. DeFiHackLabs labels it the trojan
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0xbdd077f651ebe7f7b3ce16fe5f2b025be2969516'
+  role: present in the masterCopy transaction input; Safe storage slot 0 at the end of block 21895238. DeFiHackLabs labels it the backdoor
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x34cfac646f301356faa8b21e94227e3583fe3f5f'
+  role: Safe storage slot 0 at the end of block 21895237. DeFiHackLabs labels it the previous implementation
+  verified_on_explorer: true
+attack_txs:
+- chain: ethereum
+  hash: '0x46deef0f52e3a983b67abf4714448a41dd7ffd6d32d32da69d62081c68ad7882'
+- chain: ethereum
+  hash: '0xb61413c495fdad6114a7aa863a00b2e3c28945979a10885b12b30316ea9f072c'
+- chain: ethereum
+  hash: '0xbcf316f5835362b7f1586215173cc8b294f5499c60c029a3de6318bf25ca7b20'
+- chain: ethereum
+  hash: '0x847b8403e8a4816a4de1e63db321705cdb6f998fb01ab58f653b863fda988647'
+- chain: ethereum
+  hash: '0xa284a1bc4c7e0379c924c73fcea1067068635507254b03ebbbd3f4e222c1fae0'
 code_pattern:
   language: solidity
   illustrative: true
@@ -115,14 +141,30 @@ sources:
   publisher: DeFiHackLabs
   type: analysis
   accessed: '2026-10-04'
-  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted. Hashes and addresses taken from the file header, then read from a node. PoC body not copied.
+- url: https://www.maxavery.org/blog/bybit-the-largest-theft-in-the-asset-class-and-the-signing-interface-behind-it/
+  publisher: Max Avery
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. The page also prints the masterCopy hash, the Safe, the trojan, and the backdoor.
 confidence:
   overall: high
   root_cause: high
   loss: medium
   date: high
-  notes: Report marks this V-2 (NCC Group plus Safe issue 914). Mostly an operational compromise; code
-    class is delegatecall with slot-0 overwrite.
+  notes: >-
+    Hashes from the DeFiHackLabs header, also printed by Max Avery for the masterCopy transaction.
+    On 2026-10-04, eth_getTransactionByHash and eth_getTransactionReceipt on https://eth.drpc.org,
+    cross-checked on https://rpc.mevblocker.io. All five are status 0x1, from
+    0x0fa09c3a328792253f8dee7116848723b72a6d2e to the Safe. MasterCopy hash, block 21895238,
+    2025-02-21T14:13:35Z. The other four hashes share block 21895251, 2025-02-21T14:16:11Z.
+    The ETH-labeled hash has msg.value 0 and no logs. The other three log
+    0xd5f7838f5c461feff7fe49ea5ebaf7728bb0adfa, 0xe6829d9a7ee3040e1276fa75293bde931859e8fa,
+    and 0xae7ab96520de3a18e5e111b5eaab095312d7fe84. Those token addresses were not labeled with
+    symbol() here. eth_getStorageAt slot 0 of the Safe was
+    0x34cfac646f301356faa8b21e94227e3583fe3f5f at the end of block 21895237 and
+    0xbdd077f651ebe7f7b3ce16fe5f2b025be2969516 at the end of block 21895238. Loss figures are
+    unchanged. needs_review is unchanged.
   needs_review: true
 labels_disagree:
 - source: DeFiHackLabs
