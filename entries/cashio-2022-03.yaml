@@ -1,0 +1,130 @@
+# VB-2022-0004  Cashio - collateral checks never reached a trusted account
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0004
+slug: cashio-2022-03
+title: Cashio - collateral checks never reached a trusted account
+date: '2022-03-23'
+date_source: tx
+chains:
+- solana
+language: rust-native
+protocol:
+  name: Cashio
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 50000000
+  reported_max: 52800000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://sec3.dev/blog/cashioapp-attack-whats-the-vulnerability-and-how-x-ray-detects-it
+  - https://www.certik.com/blog/cashio-app-incident-analysis
+  note: Sec3 says about $50M and 2,000,000,000 CASH. CertiK says approximately $52 million in the summary and $52.8 million later in the same article. Both figures are recorded. Nothing was recomputed.
+scope: code
+vuln_class: account_type_confusion
+tags:
+- unbacked_mint
+- missing_input_validation
+root_cause: Cashio's mint path checked that caller-supplied accounts agreed with each other. It did
+  not pin the bank account, or the mint field inside the arrow account, to a protocol-owned root.
+  A caller built a matching set of fake accounts, deposited worthless collateral, and minted real CASH.
+preconditions:
+- accounts_checked_only_against_each_other
+- missing_root_of_trust
+affected_contracts:
+- chain: solana
+  address: 6D7fgzpPZXtDB6Zqg3xRwfbohzerbytB2U5pFchnVuzw
+  role: account named by Sec3 and CertiK; present on all five confirmed transactions
+  verified_on_explorer: true
+- chain: solana
+  address: 5ahaayrV5epV3oKChn4S4F5oek2vzoMbRpuC2fB4Q2kv
+  role: account Sec3 calls the fake bank; present on the mint transaction
+  verified_on_explorer: true
+- chain: solana
+  address: BRRRot6ig147TBU6EGp7TMesmQrwu729CbG6qu2ZUHWm
+  role: program invoked by the mint transaction
+  verified_on_explorer: true
+attack_txs:
+- chain: solana
+  hash: 2X1TKidhbocN5HRLVWRUk8W1YSQH9b6VH7biAm1ad5jwTZNrPSxajz2cyorrvqtUbWUAmCb52Yqk8VxYF2P6H5tP
+- chain: solana
+  hash: 9Qw5uU4dq5Gn9RnnjbFtyeK4EZ5DAQsKNxq88sSRhTN96YmVrARuNTV7gAG2FWxqyY5AWY7yzNTmk2viJG6AAkq
+- chain: solana
+  hash: fad83BqAwEXGGyqY6FEGdgptUXt6YVowa6vmaCbfP9NEY7dRoBUAJ6TDsj1L5mK8rXKJ3LPZPPnQqGMuPVYxDNN
+- chain: solana
+  hash: 4fgL8D6QXKH1q3Gt9GPzeRDpTgq4cE5hxf1hNDUWrJVUe4qDJ1xmUZE7KJWDANT99jD8UvwNeBb1imvujz3Pz2K5
+- chain: solana
+  hash: 3qeUYN3sjxxhZFTEGoDYEe4YNwqqQH8tpaa4UGdAqfVNWautK9fQ5JRoo4W1YKZ6ouVkk3sC51WQiwmxbpuinXm3
+code_pattern:
+  language: rust
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Cashio source)
+    fn print_cash(bank: &AccountInfo, collateral_mint: &Pubkey) {
+        let bank_mint = Pubkey::new_from_array(bank.data.borrow()[0..32].try_into().unwrap());
+        assert_eq!(bank_mint, *collateral_mint, "mint mismatch");
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Cashio source)
+    fn print_cash(bank: &AccountInfo, collateral_mint: &Pubkey, expected_bank: &Pubkey) {
+        assert_eq!(bank.key, expected_bank, "unexpected bank");
+        let bank_mint = Pubkey::new_from_array(bank.data.borrow()[0..32].try_into().unwrap());
+        assert_eq!(bank_mint, *collateral_mint, "mint mismatch");
+    }
+  explanation: A check that two caller-supplied accounts match each other does not make either one
+    the protocol's account. Pin at least one account to a known address or PDA.
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-anchor-unchecked-account-no-owner.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2022-0004/vulnerable.rs
+  false_positive_fixture: fixtures/VB-2022-0004/fixed.rs
+  notes: >-
+    The rule flags an UncheckedAccount whose own line has no owner constraint.
+    That is a shape, not a parse of Cashio's brrr checks. The published bug is the
+    missing root of trust described above.
+poc:
+- kind: external
+  url: https://www.certik.com/blog/cashio-app-incident-analysis
+  framework: solana-poc-framework
+  chain: solana
+  replay_status: unverified
+fix:
+  summary: Anchor every account chain to one protocol-owned account before minting.
+  reference_url: https://sec3.dev/blog/cashioapp-attack-whats-the-vulnerability-and-how-x-ray-detects-it
+severity:
+  rating: critical
+  rationale: Unbacked CASH minted against fake collateral. Cited pages say about $50 million to $52.8 million.
+sources:
+- url: https://www.certik.com/blog/cashio-app-incident-analysis
+  publisher: CertiK
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. The five signatures were taken from this page, then read with getTransaction.
+- url: https://sec3.dev/blog/cashioapp-attack-whats-the-vulnerability-and-how-x-ray-detects-it
+  publisher: Sec3
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Names the attacker account and the fake bank account.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: >-
+    Signatures from CertiK. On 2026-10-04, getTransaction on
+    https://api.mainnet-beta.solana.com returned err null for all five.
+    Create-pool slot 126266314 at 2022-03-23T08:15:26Z. Arrow slot 126266480 at
+    2022-03-23T08:16:57Z. Fake-collateral slot 126266533 at 2022-03-23T08:17:28Z.
+    Mint slot 126266822 at 2022-03-23T08:20:08Z, which invokes BRRRot6ig147TBU6EGp7TMesmQrwu729CbG6qu2ZUHWm.
+    Swap slot 126266993 at 2022-03-23T08:21:41Z. CertiK's summary time is 08:23:26Z;
+    these block times are earlier the same day. https://solana-rpc.publicnode.com
+    returned null for these signatures. needs_review is unchanged.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

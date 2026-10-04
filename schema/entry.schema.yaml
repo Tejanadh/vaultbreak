@@ -65,7 +65,7 @@ properties:
       required: [chain, address, role, verified_on_explorer]
       properties:
         chain: {type: string}
-        address: {type: string, pattern: "^0x[0-9a-fA-F]{40}$"}
+        address: {type: string, pattern: "^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$", description: "EVM 20-byte hex, or a Solana base58 address"}
         role: {type: string}
         verified_on_explorer: {type: boolean}
   attack_txs:
@@ -76,7 +76,7 @@ properties:
       required: [chain, hash]
       properties:
         chain: {type: string}
-        hash: {type: string, pattern: "^0x[0-9a-fA-F]{64}$"}
+        hash: {type: string, pattern: "^(0x[0-9a-fA-F]{64}|[1-9A-HJ-NP-Za-km-z]{86,90})$", description: "EVM 32-byte hex, or a Solana transaction signature"}
   code_pattern:
     type: object
     additionalProperties: false

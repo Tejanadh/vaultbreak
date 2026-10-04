@@ -1,0 +1,16 @@
+rules:
+  - id: vb-anchor-account-without-signer
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      This line uses AccountInfo and does not mention a signer constraint.
+      AccountInfo does not require a signature. Prefer Signer, or put the
+      signer constraint on the same line as the field (Vaultbreak class:
+      missing_signer_check).
+    metadata:
+      vaultbreak_class: missing_signer_check
+      note: >-
+        Line-oriented. Semgrep's Rust parser rejected lifetime patterns, so
+        this rule matches a field line that contains AccountInfo and does not
+        contain "signer". A signer attribute on the previous line is not seen.
+    pattern-regex: '(?m)^(?!.*\bsigner\b).*AccountInfo.*$'

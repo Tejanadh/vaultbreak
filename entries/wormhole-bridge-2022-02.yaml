@@ -1,0 +1,125 @@
+# VB-2022-0003  Wormhole - instructions sysvar was whatever account the caller passed
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0003
+slug: wormhole-bridge-2022-02
+title: Wormhole - instructions sysvar was whatever account the caller passed
+date: '2022-02-02'
+date_source: tx
+chains:
+- solana
+language: rust-native
+protocol:
+  name: Wormhole
+  category: bridge
+  forked_from: null
+loss_usd:
+  reported_min: 320000000
+  reported_max: 323000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://www.immunebytes.com/blog/wormhole-bridge-hack-feb-2-2022-detailed-hack-analysis/
+  - https://arstechnica.com/information-technology/2022/02/how-323-million-in-crypto-was-stolen-from-a-blockchain-bridge-called-wormhole/
+  note: ImmuneBytes says about $320 million and 120,000 Wormhole ETH. Ars Technica says about $323 million and 120,000 ETH minted on Solana. The dollar figures are theirs, not a conversion done here.
+scope: code
+vuln_class: unchecked_sysvar
+tags:
+- forged_signature
+- unbacked_mint
+- missing_input_validation
+root_cause: Wormhole's Solana signature check read prior instruction data through a deprecated loader
+  that did not prove the account was the canonical instructions sysvar. A caller could pass a
+  normal account whose bytes looked like a successful secp256k1 verification. The bridge then
+  treated a guardian signature set as verified and minted wrapped ETH with no matching lock on Ethereum.
+preconditions:
+- caller_supplied_sysvar_account
+- deprecated_instruction_loader
+affected_contracts:
+- chain: solana
+  address: worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth
+  role: program invoked by the confirmed transaction
+  verified_on_explorer: true
+- chain: solana
+  address: 2tHS1cXX2h1KBEaadprqELJ6sV9wLoaSdX68FqsrrZRd
+  role: account key on that transaction; the DF3NDR write-up calls it the forged sysvar account
+  verified_on_explorer: true
+attack_txs:
+- chain: solana
+  hash: 25Zu1L2Q9uk998d5GMnX43t9u9eVBKvbVtgHndkc2GmUFed8Pu73LGW6hiDsmGXHykKUTLkvUdh4yXPdL3Jo4wVS
+code_pattern:
+  language: rust
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Wormhole source)
+    fn verify(accounts: &[AccountInfo]) {
+        let supplied = &accounts[0];
+        let data = supplied.data.borrow();
+        assert!(data[0] == 1, "secp not verified");
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Wormhole source)
+    use solana_program::sysvar::instructions;
+    fn verify(accounts: &[AccountInfo]) {
+        let supplied = &accounts[0];
+        assert_eq!(supplied.key, &instructions::ID, "not the instructions sysvar");
+        let data = supplied.data.borrow();
+        assert!(data[0] == 1, "secp not verified");
+    }
+  explanation: Compare the account address with the canonical sysvar id before reading it.
+    Checking a byte inside caller-controlled data does not prove a previous instruction ran.
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-anchor-account-without-signer.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2022-0003/vulnerable.rs
+  false_positive_fixture: fixtures/VB-2022-0003/fixed.rs
+  notes: >-
+    This rule does not model the sysvar bug. It flags an Anchor AccountInfo field
+    whose own line does not mention a signer constraint. No separate incident with
+    a confirmed missing-signer transaction was added, so the fixtures live under this id.
+poc:
+- kind: external
+  url: https://www.immunebytes.com/blog/wormhole-bridge-hack-feb-2-2022-detailed-hack-analysis/
+  framework: solana-poc-framework
+  chain: solana
+  replay_status: unverified
+fix:
+  summary: Load instruction data only from the canonical instructions sysvar address.
+  reference_url: https://arstechnica.com/information-technology/2022/02/how-323-million-in-crypto-was-stolen-from-a-blockchain-bridge-called-wormhole/
+severity:
+  rating: critical
+  rationale: Unbacked wrapped ETH minted on the Solana side of the bridge. The cited pages put the dollars between about $320 million and about $323 million.
+sources:
+- url: https://www.immunebytes.com/blog/wormhole-bridge-hack-feb-2-2022-detailed-hack-analysis/
+  publisher: ImmuneBytes
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. The signature was taken from this page, then read with getTransaction.
+- url: https://arstechnica.com/information-technology/2022/02/how-323-million-in-crypto-was-stolen-from-a-blockchain-bridge-called-wormhole/
+  publisher: Ars Technica
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Dollar and token figures are this page's.
+- url: https://docs.df3ndr.com/Book/3/10/7-wormhole.html
+  publisher: DF3NDR
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Names the forged sysvar account that is also an account key of the confirmed transaction.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: >-
+    Signature from ImmuneBytes. On 2026-10-04, getTransaction on
+    https://api.mainnet-beta.solana.com returned slot 119025020, block time
+    2022-02-02T17:58:04Z, err null. The invoked program and the account DF3NDR
+    calls the forged sysvar are both account keys. https://solana-rpc.publicnode.com
+    returned null for this signature, so there is no second RPC. needs_review is unchanged.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null
