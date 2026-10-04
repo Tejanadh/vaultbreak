@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vaultbreak - machine-checkable smart-contract exploit patterns</title><link rel="stylesheet" href="style.css"></head>
+<body><header><a class="brand" href="index.html">Vaultbreak</a><nav><a href="index.html">Entries</a> <a href="taxonomy.html">Taxonomy</a></nav></header>
+<main>
+<h1>Real exploit patterns, as checkable records</h1>
+<p class="lead">Each entry: our own root-cause summary, a normalised class, an illustrative code shape, source links and a confidence rating.
+Some entries ship a Semgrep/Slither detector with passing and failing fixtures. This is an early draft dataset; entries are marked until a human has reviewed them.</p>
+<form id="filters" onsubmit="return false">
+  <label>Search <input id="text" type="search" placeholder="e.g. rounding, oracle, delegatecall"></label>
+  <label>Class <select id="vuln_class"></select></label>
+  <label>Chain <select id="chain"></select></label>
+  <label>Severity <select id="severity"></select></label>
+  <label>From <input id="from" type="date"></label>
+  <label>To <input id="to" type="date"></label>
+  <label class="check"><input id="hasDetector" type="checkbox"> has detector</label>
+  <button id="reset" type="button">Reset</button>
+</form>
+<p id="count" aria-live="polite">Loading...</p>
+<ul id="results" class="cards"></ul>
+<noscript><p>Search needs JavaScript. Entry pages are plain HTML under <code>entries/</code>.</p></noscript>
+</main>
+<footer>Draft dataset. Summaries and code are our own; incident facts link to their sources. Data CC-BY-4.0, code MIT.</footer>
+<script src="filter.js"></script><script src="app.js"></script></body></html>

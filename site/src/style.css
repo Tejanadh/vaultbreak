@@ -1,0 +1,17 @@
+:root{--bg:#0f1115;--fg:#e6e8ee;--mut:#9aa3b2;--card:#171a21;--acc:#7cc4ff;--line:#2a2f3a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+header{display:flex;gap:1.5rem;align-items:center;padding:.8rem 1.2rem;border-bottom:1px solid var(--line)}
+.brand{font-weight:700;color:var(--fg);text-decoration:none;letter-spacing:.04em}nav a{margin-right:1rem}
+a{color:var(--acc)}main{max-width:62rem;margin:0 auto;padding:1.2rem}footer{max-width:62rem;margin:2rem auto;padding:0 1.2rem;color:var(--mut);font-size:.85rem}
+.lead{color:var(--mut)}#filters{display:flex;flex-wrap:wrap;gap:.6rem;align-items:end;margin:1rem 0}
+#filters label{display:flex;flex-direction:column;font-size:.8rem;color:var(--mut)}
+#filters .check{flex-direction:row;align-items:center;gap:.3rem}
+input,select,button{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.4rem .5rem;font:inherit}
+.cards{list-style:none;padding:0;display:grid;gap:.7rem}.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:8px;padding:.7rem .9rem}
+.sev-critical{border-left-color:#ff5d5d}.sev-high{border-left-color:#ffa24d}.sev-medium{border-left-color:#e6d44d}.sev-low{border-left-color:#6fcf97}
+.card .title{font-weight:600;font-size:1.05rem}.meta{color:var(--mut);font-size:.8rem}.summary{margin:.4rem 0 0}
+table.meta{border-collapse:collapse;width:100%;color:var(--fg);font-size:.9rem}table.meta th,table.meta td{border-bottom:1px solid var(--line);padding:.35rem .5rem;text-align:left;vertical-align:top}
+table.meta th{color:var(--mut);width:11rem}pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.8rem;overflow:auto;font-size:.8rem}
+.tag{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:0 .6rem;margin:0 .25rem .25rem 0;font-size:.78rem}
+.badge{font-size:.7rem;background:#3a2f12;color:#ffd479;border-radius:4px;padding:.1rem .4rem;vertical-align:middle}.id{color:var(--mut);margin-top:-.8rem}
+code{font-size:.85em}
