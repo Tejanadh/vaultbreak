@@ -65,8 +65,8 @@ PAGE = """<!doctype html>
 <body><header><a class="brand" href="{root}index.html">Vaultbreak</a>
 <nav><a href="{root}index.html">Entries</a> <a href="{root}taxonomy.html">Taxonomy</a></nav></header>
 <main>{body}</main>
-<footer>Draft. Summaries and snippets are mine. Facts point at the source. Data CC-BY-4.0, code MIT.
-Entries marked <em>needs review</em> are ones I have not signed off.</footer></body></html>"""
+<footer>Draft. Summaries and snippets were written for this repo. Facts point at the source. Data CC-BY-4.0, code MIT.
+Entries marked <em>needs review</em> have not been signed off.</footer></body></html>"""
 
 
 def entry_page(e, classes):

@@ -24,10 +24,10 @@ This is a policy summary, not legal advice.
   contents were not read or copied.
 * **No LLM was fed Code4rena content.**
 
-## Open question for the owner
+## Open question
 
 `detectors/slither/vb_eth_send_before_write.py` imports `slither`, which is AGPL-3.0. Whether a
-plugin that imports an AGPL library must itself be AGPL is a genuine legal grey area. The file is
-self-contained and trivially separable. Options: keep MIT (current), or relicense that one file
-as AGPL-3.0. Semgrep rules are plain YAML run by Semgrep and are not affected. Decide before
-publishing.
+plugin that imports an AGPL library must itself be AGPL is unresolved. The file is separable.
+Options: keep MIT (current), or relicense that one file as AGPL-3.0. Semgrep rules are plain YAML
+and do not import Slither. The repo is already public. Do not describe this plugin as clean MIT
+until that choice is made.

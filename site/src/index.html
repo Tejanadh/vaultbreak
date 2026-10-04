@@ -3,8 +3,8 @@
 <title>Vaultbreak</title><link rel="stylesheet" href="style.css"></head>
 <body><header><a class="brand" href="index.html">Vaultbreak</a><nav><a href="index.html">Entries</a> <a href="taxonomy.html">Taxonomy</a></nav></header>
 <main>
-<h1>Exploit notes I can check</h1>
-<p class="lead">One incident per file. My summary, a class, a small snippet I wrote, and the links. A few have a detector that has to hit the bad fixture and miss the fix. I have not reviewed these yet.</p>
+<h1>Exploit notes, checked by CI</h1>
+<p class="lead">One incident per file. A class, a short summary, a small snippet, and the links. A few have a detector that has to hit the bad fixture and miss the fix. All 21 entries are still marked needs review.</p>
 <form id="filters" onsubmit="return false">
   <label>Search <input id="text" type="search" placeholder="e.g. rounding, oracle, delegatecall"></label>
   <label>Class <select id="vuln_class"></select></label>
@@ -19,5 +19,5 @@
 <ul id="results" class="cards"></ul>
 <noscript><p>Search needs JavaScript. Entry pages are plain HTML under <code>entries/</code>.</p></noscript>
 </main>
-<footer>Draft. Summaries and snippets are mine. Facts point at the source. Data CC-BY-4.0, code MIT.</footer>
+<footer>Draft. Summaries and snippets were written for this repo. Facts point at the source. Data CC-BY-4.0, code MIT. The Slither plugin imports AGPL code. See the README.</footer>
 <script src="filter.js"></script><script src="app.js"></script></body></html>

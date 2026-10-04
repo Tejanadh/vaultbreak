@@ -1,20 +1,20 @@
 # Vaultbreak
 
-I got tired of incident lists. Date, name, "reentrancy", a link. Fine if you want the news. Useless when I wanted the actual shape of the bug, and a check that fires on that shape and stays quiet on the fix.
-
-This repo is one YAML file per incident. My summary, one class, a small snippet I wrote (not their code), and the links I opened. Some files also have a Semgrep or Slither rule. CI runs it. It has to hit the vulnerable fixture and miss the fixed one.
+One YAML file per public EVM incident. A class, a short summary, a small snippet written for this repo, and the links. Some files have a Semgrep or Slither rule. CI runs the rule. It has to hit `vulnerable.sol` and stay quiet on `fixed.sol`.
 
 ## Where it stands
 
-21 EVM incidents, 2022 through 2025. I have not reviewed them. Every file still has `needs_review: true`. A lot of the wording started as a model draft from the sources, then had to pass the schema. Passing the schema means the file is complete. It does not mean I signed the root cause.
+21 entries, 2022 through 2025. All 21 still have `needs_review: true` and `llm_assisted: true`. No root cause has been signed off. A schema pass means the file is complete.
 
-Radiant, January 2024, is the one I went back to. `VB-2024-0018`. The project postmortem says a new USDC market on Arbitrum was empty and about 1900 WETH got borrowed. I read the transactions off an Arbitrum node. The dollar writeups say $4.5M and $4.6M, so the file keeps both. I have not replayed it.
+`VB-2024-0018` is Radiant, January 2024. Radiant's postmortem says a new USDC market on Arbitrum was empty and about 1900 WETH was borrowed. On 4 Oct 2026 the hashes in that file were fetched with `eth_getTransactionByHash` against `https://arb1.arbitrum.io/rpc`. Block 166405628 is timestamped 2024-01-02 18:53:23Z, the same minute the postmortem gives. Secondary pages say $4.5M and $4.6M, so the file stores the range. Nothing has been replayed on a fork.
 
-The other 20 have no addresses and no hashes. Those fields stay empty until I fetch them.
+The other 20 entries have empty `affected_contracts` and `attack_txs`.
 
-Five detectors. They match a code shape. They do not say a live protocol is safe. The Conic rule does not flag Conic's own snippet. That is written on the entry.
+Five detectors. They match a code shape. The Conic entry stays `draft` because `vb-readonly-reentrancy-lp-view` does not flag that entry's own snippet. The limit is in the entry notes.
 
-I left out incidents I could not verify, and anything that is not EVM. Missing id numbers are those skips. The list is in `docs/STATUS.md`.
+Incidents that were not verified, and anything that is not EVM, are not in the set. Missing id numbers are those skips. The list is in `docs/STATUS.md`.
+
+`scripts/check_all.sh` was run on 4 Oct 2026. Validation, unit tests, snippet compiles, detector counts, and the site filter tests passed.
 
 ## Run it
 
@@ -28,7 +28,7 @@ python scripts/vb.py search "empty market"
 python scripts/vb.py show VB-2024-0018
 ```
 
-That validates the files, compiles the snippets, runs the detectors, and builds the site. Then:
+Then:
 
 ```bash
 cd build/site && python3 -m http.server
@@ -47,7 +47,7 @@ entries/     one YAML file per incident
 schema/      the entry schema
 taxonomy/    classes, tags, chains
 detectors/   Semgrep rules, one Slither plugin, expected counts
-fixtures/    tiny vulnerable and fixed contracts I wrote
+fixtures/    small vulnerable and fixed contracts written for this repo
 scripts/     validate, compile, test detectors, build, vb.py
 site/src/    the static site
 tests/
@@ -56,6 +56,8 @@ docs/        LICENSING.md, STATUS.md
 
 ## License
 
-Code is MIT (`LICENSE`). The entries are CC-BY-4.0 (`LICENSE-DATA`). I link to Rekt, DefiLlama, SlowMist, and DeFiHackLabs. I do not copy them. Details in `docs/LICENSING.md`. How to add a file: `CONTRIBUTING.md`.
+Code is MIT (`LICENSE`). The entries are CC-BY-4.0 (`LICENSE-DATA`). Rekt, DefiLlama, SlowMist, and DeFiHackLabs are linked. Their text is not copied. `docs/LICENSING.md`. How to add a file: `CONTRIBUTING.md`.
 
-The snippets are illustrations. Loss figures come from the cited pages and they often disagree, so a range is normal. This is not an audit.
+The Slither plugin imports Slither, which is AGPL-3.0. That file is still marked MIT, and that combination is not settled. Do not describe the plugin as clean MIT until it is. The Semgrep rules do not import Slither.
+
+The snippets are illustrations. Loss figures come from the cited pages and often disagree, so a range is normal. This is not an audit.
