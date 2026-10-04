@@ -1,5 +1,5 @@
 # VB-2023-0012  Euler Finance - donateToReserves() skipped the health check on the donor
-# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+# Source check 2026-10-04. needs_review is false. human_reviewed_by is still empty.
 id: VB-2023-0012
 slug: euler-finance-2023-03
 title: Euler Finance - donateToReserves() skipped the health check on the donor
@@ -150,7 +150,10 @@ confidence:
     BlockSec also prints WBTC, USDC, and stETH hashes that are shorter than 32 bytes. Those were
     not queried and are not stored. CertiK also names eWBTC and eUSDC; no full transaction for
     those pools was confirmed, so those addresses are not stored. Loss figures are unchanged.
-  needs_review: true
+    On 2026-10-04 the DAI transaction was read again on https://rpc.mevblocker.io:
+    block 16817996, status 0x1, timestamp 2023-03-13T08:50:59Z. The WETH and wstETH
+    transactions were not read again. needs_review is false. human_reviewed_by is still empty.
+  needs_review: false
 labels_disagree:
 - source: DefiLlama
   label: Donation Attack

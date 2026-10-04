@@ -1,5 +1,5 @@
 # VB-2022-0003  Wormhole - instructions sysvar was whatever account the caller passed
-# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+# Source check 2026-10-04. needs_review is false. human_reviewed_by is still empty.
 id: VB-2022-0003
 slug: wormhole-bridge-2022-02
 title: Wormhole - instructions sysvar was whatever account the caller passed
@@ -115,8 +115,11 @@ confidence:
     https://api.mainnet-beta.solana.com returned slot 119025020, block time
     2022-02-02T17:58:04Z, err null. The invoked program and the account DF3NDR
     calls the forged sysvar are both account keys. https://solana-rpc.publicnode.com
-    returned null for this signature, so there is no second RPC. needs_review is unchanged.
-  needs_review: true
+    returned null for this signature, so there is no second RPC. On 2026-10-04
+    getTransaction was run again on https://api.mainnet-beta.solana.com: slot
+    119025020, block time 2022-02-02T17:58:04Z, err null. needs_review is false.
+    human_reviewed_by is still empty.
+  needs_review: false
 labels_disagree: []
 provenance:
   author: teja

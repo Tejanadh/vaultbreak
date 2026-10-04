@@ -102,11 +102,11 @@ Receipts were read with `eth_getTransactionByHash` and `eth_getTransactionReceip
   entry's `confidence.notes` says so. Nomad's stored blocks are 2022-08-01 UTC.
 * `date_source: tx` is set where a confirmed block timestamp falls on the entry date: Euler, Nomad, Bybit, Ronin, Wormhole, Cashio, Crema, Nirvana, and Mango. Radiant's `date_source` was left as it was. Solend stays `postmortem` because no November transaction was confirmed.
 * OAK taxonomy mapping not done (not verified).
-* All 27 entries still have `needs_review: true`.
+* Five entries have `needs_review: false`: VB-2022-0009 Nomad, VB-2022-0003 Wormhole, VB-2022-0004 Cashio, VB-2023-0012 Euler, and VB-2025-0025 Bybit. The check used the node notes already in each file. On 2026-10-04 one stored transaction per entry was read again and matched: Nomad process on `https://rpc.mevblocker.io` (block 15259101), Wormhole on `https://api.mainnet-beta.solana.com` (slot 119025020), Cashio mint (slot 126266822), Euler DAI (block 16817996), Bybit masterCopy (block 21895238). `https://eth.drpc.org` returned HTTP 403 on that pass. `human_reviewed_by` is still empty. The other 22 entries, including Solend, still have `needs_review: true`. Solend's two October signatures are still not attack transactions.
 
 ## Next steps (suggested)
 
-1. Human review of all 27 entries (set `needs_review: false`, fill `human_reviewed_by`).
+1. Review of the other 22 entries. The five above have `needs_review: false` and `human_reviewed_by` still empty.
 2. Addresses and tx hashes for the 17 entries that are still empty. Read the node. Do not copy a hash that was not fetched.
 3. More detectors where a reliable shape exists (e.g. zero-value root in initialisers). A confirmed incident for `pda_seed_collision` or `arbitrary_cpi` if one is found.
 4. Foundry replay for more than Nomad. Pagefind for full-text search.

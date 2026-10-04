@@ -1,5 +1,5 @@
 # VB-2022-0009  Nomad Bridge - zero value accepted as a proven root, any message processable
-# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+# Source check 2026-10-04. needs_review is false. human_reviewed_by is still empty.
 id: VB-2022-0009
 slug: nomad-bridge-2022-08
 title: Nomad Bridge - zero value accepted as a proven root, any message processable
@@ -151,8 +151,11 @@ confidence:
     contain the DeFiHackLabs function body. The suite reported 1 passed, 0 failed.
     replay_status verified refers to that test. eth_getCode at block 15259100 also
     succeeded on https://rpc.mevblocker.io. https://1rpc.io/eth and https://rpc.flashbots.net
-    reported historical state unavailable.
-  needs_review: true
+    reported historical state unavailable. On 2026-10-04 the process transaction was
+    read again on https://rpc.mevblocker.io: block 15259101, status 0x1, callee the
+    Replica proxy, timestamp 2022-08-01T21:32:31Z. The setup transaction was not read
+    again. needs_review is false. human_reviewed_by is still empty.
+  needs_review: false
 labels_disagree: []
 provenance:
   author: teja

@@ -4,7 +4,7 @@ One YAML file per public incident. A class, a short summary, a small snippet wri
 
 ## Where it stands
 
-27 entries, 2022 through 2025, Ethereum and Solana. All 27 still have `needs_review: true` and `llm_assisted: true`. No root cause has been signed off. A schema pass means the file is complete.
+27 entries, 2022 through 2025, Ethereum and Solana. Five have `needs_review: false` after a check of the stored transactions against the notes: Nomad, Wormhole, Cashio, Euler, and Bybit. `human_reviewed_by` is still empty on every entry, and `llm_assisted` is still true on every entry. The other 22, including Solend, still have `needs_review: true`. A schema pass means the file is complete.
 
 `VB-2024-0018` is Radiant, January 2024. Radiant's postmortem says a new USDC market on Arbitrum was empty and about 1900 WETH was borrowed. On 4 Oct 2026 the hashes in that file were fetched with `eth_getTransactionByHash` against `https://arb1.arbitrum.io/rpc`. Block 166405628 is timestamped 2024-01-02 18:53:23Z, the same minute the postmortem gives. Secondary pages say $4.5M and $4.6M, so the file stores the range.
 

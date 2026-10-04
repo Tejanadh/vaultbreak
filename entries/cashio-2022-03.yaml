@@ -1,5 +1,5 @@
 # VB-2022-0004  Cashio - collateral checks never reached a trusted account
-# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+# Source check 2026-10-04. needs_review is false. human_reviewed_by is still empty.
 id: VB-2022-0004
 slug: cashio-2022-03
 title: Cashio - collateral checks never reached a trusted account
@@ -120,8 +120,11 @@ confidence:
     Mint slot 126266822 at 2022-03-23T08:20:08Z, which invokes BRRRot6ig147TBU6EGp7TMesmQrwu729CbG6qu2ZUHWm.
     Swap slot 126266993 at 2022-03-23T08:21:41Z. CertiK's summary time is 08:23:26Z;
     these block times are earlier the same day. https://solana-rpc.publicnode.com
-    returned null for these signatures. needs_review is unchanged.
-  needs_review: true
+    returned null for these signatures. On 2026-10-04 the mint signature was read
+    again on https://api.mainnet-beta.solana.com: slot 126266822, block time
+    2022-03-23T08:20:08Z, err null. The other four were not read again. needs_review
+    is false. human_reviewed_by is still empty.
+  needs_review: false
 labels_disagree: []
 provenance:
   author: teja
