@@ -1,0 +1,96 @@
+# Vaultbreak root-cause taxonomy, v1 (frozen vocabulary; extend via PR + version bump).
+# Source: section 1.2 of the Vaultbreak research report. Mappings to other
+# vocabularies are best-effort and are *our* judgement, not an official crosswalk.
+version: 1
+classes:
+  reentrancy:
+    name: Reentrancy
+    description: >-
+      Control flow re-enters the protocol (or a view it exposes) while its state is
+      half-updated. Includes cross-function, cross-contract, read-only, callback-hook
+      and compiler-lock variants.
+    defillama: [Reentrancy]
+    swc: [SWC-107]
+  access_control:
+    name: Access control
+    description: >-
+      A privileged action is reachable by an unauthorised caller: missing auth,
+      public initializer, unprotected callback, trusted-caller/forwarder confusion.
+    defillama: [Access Control]
+    swc: [SWC-105, SWC-106]
+  oracle_manipulation:
+    name: Oracle / price manipulation
+    description: >-
+      A price input can be moved by the attacker: spot AMM price, thin-input median,
+      stale price, LP-token pricing, attacker-supplied oracle.
+    defillama: [Oracle Manipulation]
+    swc: []
+  signature_permit:
+    name: Signature / permit
+    description: Forged, unchecked or replayable signatures; phantom permits; guardian spoofing.
+    defillama: [Input Validation]
+    swc: [SWC-117, SWC-121]
+  donation_inflation:
+    name: Donation / inflation / empty market
+    description: >-
+      Share-price or exchange-rate inflation via first deposit, donation, empty
+      Compound-fork markets, or a donation that skips a health check.
+    defillama: [Token & Share Accounting]
+    swc: []
+  rounding_arithmetic:
+    name: Rounding / precision / arithmetic
+    description: >-
+      Rounding direction, truncation, hand-rolled overflow checks, or unchecked
+      arithmetic in old Solidity.
+    defillama: [Token & Share Accounting, Protocol Logic]
+    swc: [SWC-101]
+  proxy_upgrade_init:
+    name: Proxy / upgrade / initialization
+    description: Uninitialized implementation, missing reinitializer, upgrade hijack.
+    defillama: [Access Control, Protocol Logic]
+    swc: []
+  delegatecall:
+    name: delegatecall
+    description: >-
+      delegatecall to an attacker-controlled target, delegatecall in a wallet/Safe,
+      library selfdestruct.
+    defillama: [Access Control]
+    swc: [SWC-112]
+  storage_collision:
+    name: Storage collision
+    description: Proxy/implementation slot clash, slot-0 overwrite via delegatecall.
+    defillama: [Protocol Logic]
+    swc: [SWC-124]
+  arbitrary_external_call:
+    name: Arbitrary external call / approval abuse
+    description: >-
+      Attacker-controlled target or calldata, unvalidated token address,
+      transferFrom/approve on a controllable address.
+    defillama: [Input Validation]
+    swc: []
+  bridge_verification:
+    name: Bridge verification
+    description: >-
+      Empty/zero trusted root, unverified cross-chain message, 1-of-1 verifier,
+      unbacked mint.
+    defillama: [Bridge & Cross-Chain]
+    swc: []
+  governance_flashloan:
+    name: Governance / flash-loan
+    description: Flash-loan voting power, no execution delay, malicious proposal.
+    defillama: [Governance]
+    swc: []
+  solana_specific:
+    name: Solana-specific
+    description: >-
+      Sealevel classes: signer/owner checks, account confusion, PDA seeds, arbitrary
+      CPI, sysvar spoofing. Stretch goal; no entries yet.
+    defillama: []
+    swc: []
+  operational:
+    name: Operational / key / infra
+    description: >-
+      Key compromise, signer phishing, multisig takeover, DVN/RPC compromise. Out of
+      code scope; used with scope=operational or hybrid.
+    defillama: [Key Compromise, Social Engineering, Frontend & Infrastructure]
+    swc: []

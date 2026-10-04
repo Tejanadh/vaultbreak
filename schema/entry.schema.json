@@ -1,0 +1,562 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vaultbreak.invalid/schema/entry.schema.json",
+  "title": "Vaultbreak entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "slug",
+    "title",
+    "date",
+    "date_source",
+    "chains",
+    "language",
+    "protocol",
+    "loss_usd",
+    "scope",
+    "vuln_class",
+    "tags",
+    "root_cause",
+    "code_pattern",
+    "severity",
+    "sources",
+    "confidence",
+    "provenance"
+  ],
+  "$defs": {
+    "url": {
+      "type": "string",
+      "pattern": "^https://[^\\s]+$"
+    },
+    "isodate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "nullable_isodate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "confidence_level": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^VB-\\d{4}-\\d{4}$",
+      "description": "stable",
+      "never reused": null
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 140
+    },
+    "date": {
+      "$ref": "#/$defs/isodate",
+      "description": "UTC date of the first malicious tx where known"
+    },
+    "date_source": {
+      "enum": [
+        "tx",
+        "postmortem",
+        "aggregator"
+      ]
+    },
+    "chains": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_-]+$"
+      }
+    },
+    "language": {
+      "enum": [
+        "solidity",
+        "vyper",
+        "rust-anchor",
+        "rust-native",
+        "move",
+        "cairo"
+      ]
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "category"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "lending",
+            "dex",
+            "bridge",
+            "derivatives",
+            "yield",
+            "wallet",
+            "governance",
+            "staking",
+            "other"
+          ]
+        },
+        "forked_from": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "loss_usd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_min",
+        "reported_max",
+        "as_of",
+        "sources"
+      ],
+      "properties": {
+        "reported_min": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "reported_max": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "recovered": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "as_of": {
+          "$ref": "#/$defs/isodate"
+        },
+        "note": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/url"
+          }
+        }
+      }
+    },
+    "scope": {
+      "enum": [
+        "code",
+        "operational",
+        "hybrid"
+      ]
+    },
+    "vuln_class": {
+      "type": "string",
+      "description": "key of taxonomy/vuln_class.yaml (checked by validate.py)"
+    },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]+(:[a-z0-9_]+)?$"
+      }
+    },
+    "root_cause": {
+      "type": "string",
+      "minLength": 80,
+      "description": "2-4 sentences, our own words"
+    },
+    "preconditions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]+$"
+      }
+    },
+    "affected_contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain",
+          "address",
+          "role",
+          "verified_on_explorer"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "role": {
+            "type": "string"
+          },
+          "verified_on_explorer": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "attack_txs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain",
+          "hash"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
+          }
+        }
+      }
+    },
+    "code_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language",
+        "illustrative",
+        "vulnerable_snippet",
+        "fixed_snippet",
+        "explanation"
+      ],
+      "properties": {
+        "language": {
+          "enum": [
+            "solidity",
+            "vyper",
+            "rust",
+            "move",
+            "cairo"
+          ]
+        },
+        "illustrative": {
+          "const": true,
+          "description": "The snippets are our own minimal illustrations, never the project's real code."
+        },
+        "vulnerable_snippet": {
+          "type": "string",
+          "minLength": 20
+        },
+        "fixed_snippet": {
+          "type": "string",
+          "minLength": 20
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "detectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "engine",
+          "path",
+          "status",
+          "true_positive_fixture",
+          "false_positive_fixture"
+        ],
+        "properties": {
+          "engine": {
+            "enum": [
+              "semgrep",
+              "slither",
+              "foundry",
+              "bytecode"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "validated"
+            ]
+          },
+          "true_positive_fixture": {
+            "type": "string"
+          },
+          "false_positive_fixture": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "bytecode_pattern": {
+      "type": "object",
+      "properties": {
+        "selectors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "opcode_features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "poc": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "url",
+          "framework",
+          "chain",
+          "replay_status"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "external",
+              "own"
+            ]
+          },
+          "url": {
+            "$ref": "#/$defs/url"
+          },
+          "framework": {
+            "enum": [
+              "foundry",
+              "anchor",
+              "solana-poc-framework"
+            ]
+          },
+          "fork_block": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "chain": {
+            "type": "string"
+          },
+          "replay_status": {
+            "enum": [
+              "unverified",
+              "passes",
+              "fails"
+            ]
+          },
+          "last_replayed": {
+            "$ref": "#/$defs/nullable_isodate"
+          }
+        }
+      }
+    },
+    "fix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10
+        },
+        "reference_url": {
+          "$ref": "#/$defs/url"
+        }
+      }
+    },
+    "severity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rating",
+        "rationale"
+      ],
+      "properties": {
+        "rating": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 10
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "publisher",
+          "type",
+          "accessed"
+        ],
+        "properties": {
+          "url": {
+            "$ref": "#/$defs/url"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "postmortem",
+              "analysis",
+              "aggregator",
+              "primary"
+            ]
+          },
+          "accessed": {
+            "$ref": "#/$defs/isodate"
+          },
+          "license_note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall",
+        "root_cause",
+        "loss",
+        "date",
+        "needs_review"
+      ],
+      "properties": {
+        "overall": {
+          "$ref": "#/$defs/confidence_level"
+        },
+        "root_cause": {
+          "$ref": "#/$defs/confidence_level"
+        },
+        "loss": {
+          "$ref": "#/$defs/confidence_level"
+        },
+        "date": {
+          "$ref": "#/$defs/confidence_level"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "needs_review": {
+          "type": "boolean"
+        }
+      }
+    },
+    "labels_disagree": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "label"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "author",
+        "llm_assisted",
+        "human_reviewed_by",
+        "reviewed_on"
+      ],
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "llm_assisted": {
+          "type": "boolean"
+        },
+        "human_reviewed_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed_on": {
+          "$ref": "#/$defs/nullable_isodate"
+        }
+      }
+    }
+  }
+}

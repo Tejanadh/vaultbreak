@@ -1,0 +1,3 @@
+# Allowed values for `chains[]`. `multichain` = incident spanned several chains and
+# the cited sources do not enumerate them all.
+chains: [ethereum, bsc, arbitrum, optimism, base, opbnb, manta, taiko, polygon, avalanche, unichain, cronos, solana, multichain]

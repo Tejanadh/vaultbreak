@@ -1,0 +1,68 @@
+# Secondary tags, v1. Format: snake_case, or group:value for cross-cutting groups.
+version: 1
+tags:
+  approval_abuse: {description: "Allowance or transferFrom abused to move funds"}
+  arbitrary_contract_accepted: {description: "Protocol accepts a user-supplied contract where an EOA/trusted contract was assumed"}
+  bad_initialization_after_upgrade: {description: "Upgrade left the new version initialised with unsafe values"}
+  balance_delta_accounting: {description: "Accounting by balanceOf difference around an external call"}
+  batch_swap_micro_swaps: {description: "Many tiny swaps chained in one batch to accumulate rounding error"}
+  callback_reentrancy: {description: "Reentrancy through a token/hook/user callback"}
+  caller_controlled_approval_target: {description: "Spender of an allowance derived from caller input"}
+  caller_controlled_calldata: {description: "External call data built from caller input"}
+  caller_controlled_token: {description: "Token address taken from caller input"}
+  capital_amplifier:flash_loan: {description: "Flash loan used as capital amplifier (not a root cause)"}
+  cei_violation: {description: "Checks-effects-interactions ordering violated"}
+  compiler_bug: {description: "Defect in the compiler, not in the source"}
+  compound_fork: {description: "Fork of Compound V2-style lending code"}
+  compound_style_exchange_rate: {description: "Exchange rate derived from raw balance and total shares"}
+  concentrated_liquidity: {description: "Tick-based concentrated liquidity AMM"}
+  copycat_exploitation: {description: "Exploit tx trivially copyable by unrelated accounts"}
+  cross_contract_reentrancy: {description: "Re-entry through a different contract sharing state"}
+  donate_to_reserves: {description: "Donation function that moves collateral into reserves"}
+  double_counted_liquidity: {description: "Same liquidity applied twice in swap maths"}
+  emergency_proposal_path: {description: "Governance fast path with weaker safeguards"}
+  empty_market: {description: "Market with zero or near-zero shares at exploit time"}
+  eth_weth_address_mixup: {description: "Native ETH alias (sentinel/zero) confused with WETH"}
+  exchange_rate_donation: {description: "Exchange rate moved by donating tokens to the contract"}
+  forged_signature: {description: "Signature or sender identity accepted without proper verification"}
+  forwarder_confusion: {description: "Trusting a forwarder address instead of the original sender"}
+  governance_timing: {description: "Exploitable timing in governance/timelock execution"}
+  incomplete_prior_fix: {description: "An earlier fix did not cover every entry point"}
+  legacy_code: {description: "Superseded code path left live"}
+  low_liquidity_state: {description: "Exploit requires pool in a low-liquidity state"}
+  median_oracle_thin_inputs: {description: "Median over feeds where too many are manipulable"}
+  missing_contract_existence_check: {description: "No check that an address has code before relying on a call result"}
+  missing_health_check: {description: "State change without post-condition solvency check"}
+  missing_input_validation: {description: "Caller-supplied parameters not validated"}
+  missing_reinitializer: {description: "Reinitializer step missing or skipped"}
+  multisig_wallet: {description: "Multisig / Safe-style wallet involved"}
+  native_eth_callback: {description: "Native ETH payout gives the receiver control flow"}
+  no_execution_delay: {description: "Passed action executes with no delay"}
+  oracle_lp_pricing: {description: "LP token priced from pool state"}
+  oracle_price_set_by_attacker: {description: "Attacker can write the price used by the protocol"}
+  price_accounting_manipulation: {description: "Global price accounting variable manipulated"}
+  proxy_implementation_swap: {description: "Proxy implementation replaced by attacker"}
+  rate_provider_scaling: {description: "Non-unit rate provider scaling in stable pools"}
+  read_only_reentrancy: {description: "Reentrancy that only reads inconsistent view state"}
+  redeem_rounding: {description: "Rounding in redeem/withdraw benefits the redeemer"}
+  reintroduced_known_bug: {description: "Known bug reappeared in new code"}
+  reward_inflation: {description: "Reward or staking balance inflated"}
+  rounding_direction: {description: "Rounding direction favours the attacker"}
+  self_liquidation: {description: "Attacker liquidates their own deliberately unhealthy position"}
+  signer_phishing: {description: "Signers deceived into approving a malicious transaction"}
+  skipped_upgrade_step: {description: "Upgrade path skipped a required step"}
+  spot_price_input: {description: "Instantaneous AMM price used as an input"}
+  stablecoin_collateral_pricing: {description: "Pricing of a yield-bearing stablecoin as collateral"}
+  storage_slot_overwrite: {description: "Specific storage slot overwritten via delegatecall"}
+  tick_boundary_precision: {description: "Precision issue at a tick boundary"}
+  timelock_execution_race: {description: "Anyone can execute a queued op and exploit it atomically"}
+  treasury_drain: {description: "Protocol treasury moved out"}
+  unbacked_mint: {description: "Tokens minted without backing collateral"}
+  unproven_message_accepted: {description: "Cross-chain message accepted without a valid proof"}
+  unrestricted_relay_entrypoint: {description: "Relay/execute function callable by anyone"}
+  untrusted_market_registration: {description: "Permissionless registration of an attacker-controlled market"}
+  unverified_contracts: {description: "Contracts unverified on explorer, analysis from decompilation"}
+  vyper_nonreentrant_lock: {description: "Vyper @nonreentrant lock behaviour"}
+  zero_address_token: {description: "address(0) accepted as token"}
+  zero_value_trusted_root: {description: "Zero/default value accepted as trusted root"}
+  zero_vote_threshold: {description: "Security threshold computed as zero"}
