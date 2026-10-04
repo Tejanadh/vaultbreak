@@ -4,7 +4,7 @@ id: VB-2022-0009
 slug: nomad-bridge-2022-08
 title: Nomad Bridge - zero value accepted as a proven root, any message processable
 date: '2022-08-01'
-date_source: aggregator
+date_source: tx
 chains:
 - ethereum
 language: solidity
@@ -34,8 +34,24 @@ preconditions:
 - default_mapping_value_equals_trusted_root
 - initializer_accepted_zero_root
 - process_callable_by_anyone
-affected_contracts: []
-attack_txs: []
+affected_contracts:
+- chain: ethereum
+  address: '0x5d94309e5a0090b165fa4181519701637b6daeba'
+  role: Replica proxy; callee and a log address of the 100 WBTC process transaction
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x88a69b4e698a4b090df6cf5bd7b2d47325ad30a3'
+  role: BridgeRouter proxy; callee of the earlier WBTC transfer and a log address of the process transaction
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'
+  role: WBTC (symbol and 8 decimals read by eth_call); log address on both transactions
+  verified_on_explorer: true
+attack_txs:
+- chain: ethereum
+  hash: '0xed26708a7335116bdb0673f32ace7c2f329fe3cd349e200447210f1721f335f0'
+- chain: ethereum
+  hash: '0xa5fe9d044e4f3e5aa5bc4c0709333cd2190cba0f4e7f16bcf73f49f83e4a5460'
 code_pattern:
   language: solidity
   illustrative: true
@@ -87,8 +103,10 @@ poc:
 - kind: external
   url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-08/NomadBridge_exp.sol
   framework: foundry
+  fork_block: 15259100
   chain: ethereum
-  replay_status: unverified
+  replay_status: verified
+  last_replayed: '2026-10-04'
 fix:
   summary: Never confirm the zero root, treat missing proof as failure explicitly, and add post-upgrade
     invariant checks.
@@ -112,8 +130,28 @@ confidence:
   root_cause: high
   loss: high
   date: medium
-  notes: DeFiHackLabs dates it 2022-08-02 and quotes ~$152M for tokens it counted; the report and Rekt
-    give 2022-08-01 and $190M. Single analysis source (Rekt) plus the PoC index.
+  notes: >-
+    Hashes and the Replica and BridgeRouter proxy addresses are the comment header of the linked
+    DeFiHackLabs file, not a copied PoC. On 2026-10-04, eth_getTransactionByHash and
+    eth_getTransactionReceipt on https://eth.drpc.org, cross-checked on https://rpc.mevblocker.io.
+    Setup hash, block 15258799, 2022-08-01T20:24:53Z, status 0x1, from
+    0xa8c83b1b30291a3a1a118058b5445cc83041cd9d to the BridgeRouter. Process hash, block 15259101,
+    2022-08-01T21:32:31Z, status 0x1, same sender to the Replica proxy. DeFiHackLabs dates the
+    incident 2022-08-02; the block timestamps are 2022-08-01 UTC, which is the entry date.
+    The same header names Replica logic 0xb92336759618f55bd0f8313bd843604592e27bd8 and
+    BridgeRouter logic 0x15fda9f60310d09fea54e3c99d1197dff5107248. Neither is a log address on
+    the process transaction. eth_getStorageAt of the EIP-1967 implementation slot on the Replica
+    proxy at block 15259101 returned zero, so those logic addresses are not listed. The header
+    also names 0x53fd92771d2084a9bf39a6477015ef53b7f116c79d98a21be723d06d79024cad. That hash
+    exists, block 15002481, 2022-06-21T13:15:16Z, to the Replica logic address. It is not an
+    August attack transaction and is not stored in attack_txs. Loss figures are unchanged.
+    On 2026-10-04, forge 1.7.1 test --fork-url https://eth.drpc.org --fork-block-number
+    15259100 ran replay/nomad/test/NomadReplay.t.sol. The test calls vm.transact on the
+    process hash and checks the WBTC balance delta of 10000000000 raw units. It does not
+    contain the DeFiHackLabs function body. The suite reported 1 passed, 0 failed.
+    replay_status verified refers to that test. eth_getCode at block 15259100 also
+    succeeded on https://rpc.mevblocker.io. https://1rpc.io/eth and https://rpc.flashbots.net
+    reported historical state unavailable.
   needs_review: true
 labels_disagree: []
 provenance:

@@ -4,7 +4,7 @@ id: VB-2023-0012
 slug: euler-finance-2023-03
 title: Euler Finance - donateToReserves() skipped the health check on the donor
 date: '2023-03-13'
-date_source: aggregator
+date_source: tx
 chains:
 - ethereum
 language: solidity
@@ -35,8 +35,34 @@ preconditions:
 - state_changing_function_without_post_condition_check
 - liquidation_discount_exploitable
 - flash_loan_liquidity_available
-affected_contracts: []
-attack_txs: []
+affected_contracts:
+- chain: ethereum
+  address: '0xe025e3ca2be02316033184551d4d3aa22024d9dc'
+  role: receipt log address on the DAI transaction; CertiK labels this contract eDAI
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0xebc29199c817dc47ba12e3f86102564d640cbf99'
+  role: callee of the DAI transaction
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x1b808f49add4b8c6b5117d9681cf7312fcf0dc1d'
+  role: receipt log address on the WETH transaction; CertiK labels this contract eWETH
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0xbd1bd5c956684f7eb79da40f582cbe1373a1d593'
+  role: receipt log address on the wstETH transaction; CertiK labels this contract ewstETH
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x036cec1a199234fc02f72d29e596a09440825f1c'
+  role: callee of the WETH and wstETH transactions
+  verified_on_explorer: true
+attack_txs:
+- chain: ethereum
+  hash: '0xc310a0affe2169d1f6feec1c63dbc7f7c62a887fa48795d327d4d2da2d6b111d'
+- chain: ethereum
+  hash: '0x47ac3527d02e6b9631c77fad1cdee7bfa77a8a7bfd4880dccbda5146ace4088f'
+- chain: ethereum
+  hash: '0x62bd3d31a7b75c098ccf28bc4d4af8c4a191b4b9e451fab4232258079e8b18c4'
 code_pattern:
   language: solidity
   illustrative: true
@@ -95,13 +121,35 @@ sources:
   type: analysis
   accessed: '2026-10-04'
   license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+- url: https://www.certik.com/blog/euler-finance-incident-analysis
+  publisher: CertiK
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary. Hash and eToken addresses taken from this page, then read from a node.
+- url: https://blocksec.com/blog/euler-finance-incident-the-largest-hack-of-2023
+  publisher: BlockSec
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary. WETH and wstETH hashes taken from this page, then read from a node.
 confidence:
   overall: medium
   root_cause: high
   loss: high
   date: high
-  notes: Single analysis source (Rekt) plus the PoC index; the report cross-checked root cause against
-    Omniscia in Appendix B but no URL was recorded, so it is not cited here.
+  notes: >-
+    On 2026-10-04, eth_getTransactionByHash and eth_getTransactionReceipt on
+    https://eth.drpc.org, cross-checked on https://rpc.mevblocker.io (same block, from, to,
+    status, log count). DAI hash from CertiK, block 16817996, 2023-03-13T08:50:59Z, status 0x1,
+    from 0x5f259d0b76665c337c6104145894f4d1d2758b8c to 0xebc29199c817dc47ba12e3f86102564d640cbf99;
+    eDAI is a log address. CertiK describes that sender as an MEV copy of the first attack, and
+    names attack contract 0x583c21631c48d442b5c0e605d624f54a0b366c72. That address is not tx.from,
+    tx.to, or a receipt log on the three transactions below, so it is not listed. WETH hash from
+    BlockSec, block 16818024, 2023-03-13T08:56:35Z, from 0xb2698c2d99ad2c302a95a8db26b08d17a77cedd4
+    to 0x036cec1a199234fc02f72d29e596a09440825f1c; eWETH is a log address. wstETH hash from
+    BlockSec, block 16818062, 2023-03-13T09:04:23Z, same from and to; ewstETH is a log address.
+    BlockSec also prints WBTC, USDC, and stETH hashes that are shorter than 32 bytes. Those were
+    not queried and are not stored. CertiK also names eWBTC and eUSDC; no full transaction for
+    those pools was confirmed, so those addresses are not stored. Loss figures are unchanged.
   needs_review: true
 labels_disagree:
 - source: DefiLlama

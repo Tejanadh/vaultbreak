@@ -1,0 +1,15 @@
+rules:
+  - id: vb-anchor-unchecked-account-no-owner
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      This line uses UncheckedAccount and does not mention an owner constraint.
+      Anchor will not check which program owns the account (Vaultbreak class:
+      missing_owner_check).
+    metadata:
+      vaultbreak_class: missing_owner_check
+      note: >-
+        Line-oriented. Semgrep's Rust parser rejected lifetime patterns, so
+        the owner constraint has to be on the same line as UncheckedAccount.
+        An owner attribute on the previous line is not seen.
+    pattern-regex: '(?m)^(?!.*\bowner\b).*UncheckedAccount.*$'

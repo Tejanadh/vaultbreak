@@ -1,20 +1,24 @@
 # Vaultbreak
 
-One YAML file per public EVM incident. A class, a short summary, a small snippet written for this repo, and the links. Some files have a Semgrep or Slither rule. CI runs the rule. It has to hit `vulnerable.sol` and stay quiet on `fixed.sol`.
+One YAML file per public incident. A class, a short summary, a small snippet written for this repo, and the links. Some files have a Semgrep or Slither rule. CI runs the rule. It has to hit the vulnerable fixture and stay quiet on the fixed one.
 
 ## Where it stands
 
-21 entries, 2022 through 2025. All 21 still have `needs_review: true` and `llm_assisted: true`. No root cause has been signed off. A schema pass means the file is complete.
+27 entries, 2022 through 2025, Ethereum and Solana. All 27 still have `needs_review: true` and `llm_assisted: true`. No root cause has been signed off. A schema pass means the file is complete.
 
-`VB-2024-0018` is Radiant, January 2024. Radiant's postmortem says a new USDC market on Arbitrum was empty and about 1900 WETH was borrowed. On 4 Oct 2026 the hashes in that file were fetched with `eth_getTransactionByHash` against `https://arb1.arbitrum.io/rpc`. Block 166405628 is timestamped 2024-01-02 18:53:23Z, the same minute the postmortem gives. Secondary pages say $4.5M and $4.6M, so the file stores the range. Nothing has been replayed on a fork.
+`VB-2024-0018` is Radiant, January 2024. Radiant's postmortem says a new USDC market on Arbitrum was empty and about 1900 WETH was borrowed. On 4 Oct 2026 the hashes in that file were fetched with `eth_getTransactionByHash` against `https://arb1.arbitrum.io/rpc`. Block 166405628 is timestamped 2024-01-02 18:53:23Z, the same minute the postmortem gives. Secondary pages say $4.5M and $4.6M, so the file stores the range.
 
-The other 20 entries have empty `affected_contracts` and `attack_txs`.
+Ethereum hashes were filled the same day for Euler, Nomad, Bybit, and Ronin, after `eth_getTransactionByHash` and the receipt on `https://eth.drpc.org`, cross-checked on `https://rpc.mevblocker.io`. Solana signatures for Wormhole, Cashio, Crema, Nirvana, and Mango were read with `getTransaction` on `https://api.mainnet-beta.solana.com`. Solend is in the set without a transaction: the two signatures that were fetched are dated 28 Oct 2022, and the write-ups put the drain on 2 Nov 2022.
 
-Five detectors. They match a code shape. The Conic entry stays `draft` because `vb-readonly-reentrancy-lp-view` does not flag that entry's own snippet. The limit is in the entry notes.
+17 entries still have empty `affected_contracts` and `attack_txs`. That is the 16 older EVM files plus Solend.
 
-Incidents that were not verified, and anything that is not EVM, are not in the set. Missing id numbers are those skips. The list is in `docs/STATUS.md`.
+Seven detectors. They match a code shape. The Conic entry stays `draft` because `vb-readonly-reentrancy-lp-view` does not flag that entry's own snippet. The two Anchor rules are line checks. Semgrep's Rust parser would not take a lifetime pattern, so the constraint has to be on the same line as the field. The limit is in the entry notes.
 
-`scripts/check_all.sh` was run on 4 Oct 2026. Validation, unit tests, snippet compiles, detector counts, and the site filter tests passed.
+Nomad is the one fork replay. On 4 Oct 2026, `forge 1.7.1` ran `replay/nomad/test/NomadReplay.t.sol` against `https://eth.drpc.org` at block 15259100. The test calls `vm.transact` on the process hash and checks the WBTC delta from the receipt. It passed, so that entry's `replay_status` is `verified`. The DeFiHackLabs file is linked and not copied. Every other `replay_status` is still `unverified`. Euler was not replayed.
+
+Incidents that were not verified are not in the set. `pda_seed_collision` and `arbitrary_cpi` are in the taxonomy and have no entry. Missing id numbers are the skips. The list is in `docs/STATUS.md`.
+
+`scripts/check_all.sh` was run on 4 Oct 2026 after these edits. Validation, unit tests, snippet compiles, detector counts, and the site filter tests passed. That script does not run the Foundry replay. The Nomad forge command above was run on its own, and it passed.
 
 ## Run it
 
@@ -47,8 +51,9 @@ entries/     one YAML file per incident
 schema/      the entry schema
 taxonomy/    classes, tags, chains
 detectors/   Semgrep rules, one Slither plugin, expected counts
-fixtures/    small vulnerable and fixed contracts written for this repo
+fixtures/    small vulnerable and fixed files written for this repo
 scripts/     validate, compile, test detectors, build, vb.py
+replay/      one Foundry fork test (Nomad)
 site/src/    the static site
 tests/
 docs/        LICENSING.md, STATUS.md

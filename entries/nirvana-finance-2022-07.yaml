@@ -1,0 +1,127 @@
+# VB-2022-0008  Nirvana - a buy moved the price the treasury then paid
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0008
+slug: nirvana-finance-2022-07
+title: Nirvana - a buy moved the price the treasury then paid
+date: '2022-07-28'
+date_source: tx
+chains:
+- solana
+language: rust-native
+protocol:
+  name: Nirvana Finance
+  category: yield
+  forked_from: null
+loss_usd:
+  reported_min: 3490000
+  reported_max: 3574635
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://www.theblock.co/post/159975/solana-stablecoin-nirvana-sinks-90-amid-3-5-million-flash-loan-exploit
+  - https://www.certik.com/resources/blog/nirvana-finance-incident-analysis
+  note: The Block says about $3.5 million and, in the same article, $3.49 million taken from the treasury. CertiK says about $3,574,635. Those stated figures are the range.
+scope: code
+vuln_class: oracle_manipulation
+tags:
+- spot_price_input
+- capital_amplifier:flash_loan
+- treasury_drain
+root_cause: A flash loan from Solend funded a buy of ANA that moved the price Nirvana used. The same
+  position was then sold into the treasury for more stablecoins than the loan, and the loan was repaid.
+  The Block describes this as a manipulated oracle feed. CertiK describes a Buy command that moved ANA
+  from about $8 to about $24. Both are recorded. The entry does not pick a winner.
+preconditions:
+- price_moves_with_the_trade
+- flash_loan_liquidity_available
+affected_contracts:
+- chain: solana
+  address: 76w4SBe2of2wWUsx2FjkkwD29rRznfvEkBa1upSbTAWH
+  role: fee payer of the confirmed transaction; CertiK calls this the attacker account
+  verified_on_explorer: true
+- chain: solana
+  address: CxuuSEv67PzNkMxqCvHeDUr6HKaadoz8NhTfxbQSJnaG
+  role: account key on that transaction; CertiK calls it the Nirvana treasury
+  verified_on_explorer: true
+- chain: solana
+  address: DdZR6zRFiUt4S5mg7AV1uKB2z1f1WzcNYCaTEEWPAuby
+  role: account key on that transaction; CertiK calls it the Solend main pool vault
+  verified_on_explorer: true
+- chain: solana
+  address: So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo
+  role: program invoked by the confirmed transaction
+  verified_on_explorer: true
+attack_txs:
+- chain: solana
+  hash: LyUnvdY9KBQiVRFqmSzGUfCuPGqYX1xNHCWLWxWZ4MvgLcNis2Kui6T25Ayai5UzpTAFkSRSgriKb3pM8tAoeR5
+code_pattern:
+  language: rust
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Nirvana source)
+    fn sell(treasury_usdc: &mut u64, ana_price: u64, ana_in: u64) {
+        *treasury_usdc -= ana_price * ana_in;
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Nirvana source)
+    fn sell(treasury_usdc: &mut u64, independent_price: u64, ana_in: u64, cap: u64) {
+        let pay = independent_price.saturating_mul(ana_in).min(cap);
+        *treasury_usdc = treasury_usdc.saturating_sub(pay);
+    }
+  explanation: A price that the same trade just wrote is not an independent quote. The payout
+    has to be bounded by reserves and by a price the trader cannot set inside the transaction.
+poc:
+- kind: external
+  url: https://www.certik.com/resources/blog/nirvana-finance-incident-analysis
+  framework: solana-poc-framework
+  chain: solana
+  replay_status: unverified
+fix:
+  summary: Do not pay the treasury out at a price the same transaction just moved.
+  reference_url: https://www.theblock.co/post/159975/solana-stablecoin-nirvana-sinks-90-amid-3-5-million-flash-loan-exploit
+severity:
+  rating: high
+  rationale: Treasury stablecoins left in one transaction. Cited pages say about $3.49 million to about $3.57 million.
+sources:
+- url: https://www.theblock.co/post/159975/solana-stablecoin-nirvana-sinks-90-amid-3-5-million-flash-loan-exploit
+  publisher: The Block
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Own summary.
+- url: https://www.certik.com/resources/blog/nirvana-finance-incident-analysis
+  publisher: CertiK
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Account labels taken from this page and matched to account keys.
+- url: https://smartcontractshacking.com/hacks/nirvana-finance-hack-2022
+  publisher: Smart Contract Hacking
+  type: aggregator
+  accessed: '2026-10-04'
+  license_note: The signature was taken from this page, then read with getTransaction. The page is an index, not a primary write-up.
+confidence:
+  overall: medium
+  root_cause: medium
+  loss: medium
+  date: high
+  notes: >-
+    Signature from the Smart Contract Hacking index. On 2026-10-04, getTransaction
+    on https://api.mainnet-beta.solana.com returned slot 143469271, block time
+    2022-07-28T05:11:56Z, err null. Fee payer is the CertiK attacker account. The
+    CertiK treasury and Solend vault are account keys. The invoked program is
+    So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo. That program id is not named in
+    the CertiK page, so it is stored only as the invoked program.
+    https://solana-rpc.publicnode.com returned null for this signature.
+    needs_review is unchanged.
+  needs_review: true
+labels_disagree:
+- source: The Block
+  label: oracle feed
+  note: CertiK instead describes a Buy command that moved the ANA price.
+- source: CertiK
+  label: Buy command
+  note: The Block calls the same incident a manipulated oracle feed.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

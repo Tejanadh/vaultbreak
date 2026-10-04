@@ -4,7 +4,7 @@ id: VB-2024-0022
 slug: ronin-bridge-2024-08
 title: Ronin Bridge V4 upgrade - skipped initializer left vote threshold at zero
 date: '2024-08-06'
-date_source: postmortem
+date_source: tx
 chains:
 - ethereum
 language: solidity
@@ -34,8 +34,28 @@ preconditions:
 - multi_step_initializer_chain
 - upgrade_skipped_a_version
 - threshold_derived_from_uninitialized_state
-affected_contracts: []
-attack_txs: []
+affected_contracts:
+- chain: ethereum
+  address: '0x64192819ac13ef72bf6b5ae239ac672b43a9af08'
+  role: log address on both transactions; Three Sigma names this contract the Ronin Bridge
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x4ab12e7ce31857ee022f273e8580f73335a73c0b'
+  role: callee of the first transaction
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0x6980a47bee930a4584b09ee79ebe46484fbdbdd0'
+  role: callee of the second transaction and Transfer recipient
+  verified_on_explorer: true
+- chain: ethereum
+  address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+  role: USDC (symbol and 6 decimals read by eth_call); emitted the Transfer on the second transaction
+  verified_on_explorer: true
+attack_txs:
+- chain: ethereum
+  hash: '0x2619570088683e6cc3a38d93c3d98899e5783864e15525d5f5810c11189ba6cb'
+- chain: ethereum
+  hash: '0xbce5b8548db486c561948e8a177c8ccaa72810f972cee3909ea50af015a60ad8'
 code_pattern:
   language: solidity
   illustrative: true
@@ -99,13 +119,27 @@ sources:
   type: analysis
   accessed: '2026-10-04'
   license_note: Linked only; own summary.
+- url: https://threesigma.xyz/blog/exploit/ronin-network-12m-exploit-analysis
+  publisher: Three Sigma
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Both transaction hashes and the bridge address were taken from this page, then read from a node.
 confidence:
   overall: high
   root_cause: high
   loss: medium
   date: high
-  notes: Report marks this V-2 (Halborn and Beosin). No PoC link recorded in the report and none found
-    in the DeFiHackLabs index, so poc is omitted.
+  notes: >-
+    Hashes from Three Sigma. On 2026-10-04, eth_getTransactionByHash and eth_getTransactionReceipt
+    on https://eth.drpc.org, cross-checked on https://rpc.mevblocker.io. First hash, block
+    20468679, 2024-08-06T09:37:23Z, status 0x1, from 0x1a56abf4fe95e21c1704cbd5ffc79ea1effa3cc1
+    to 0x4ab12e7ce31857ee022f273e8580f73335a73c0b, msg.value 1 wei, one log from the bridge.
+    Second hash, block 20468848, 2024-08-06T10:11:47Z, status 0x1, from
+    0xfde0d1575ed8e06fbf36256bcdfa1f359281455a to 0x6980a47bee930a4584b09ee79ebe46484fbdbdd0.
+    Its USDC Transfer log moves 1998046875000 raw units (1,998,046.875 USDC at 6 decimals) from
+    the bridge to that callee. Beosin audit-transaction hashes were not used, because this check
+    did not show they are the withdrawals. Loss figures on the entry are unchanged. No PoC link
+    is recorded. needs_review is unchanged.
   needs_review: true
 labels_disagree: []
 provenance:

@@ -20,3 +20,11 @@ detectors/semgrep/vb-exchange-rate-from-balance.yaml:
   fixture_dir: fixtures/VB-2024-0018
   tp: 2          # exchangeRate, priceOfShare
   fp: 0
+detectors/semgrep/vb-anchor-account-without-signer.yaml:
+  fixture_dir: fixtures/VB-2022-0003
+  tp: 2          # authority, payer
+  fp: 0
+detectors/semgrep/vb-anchor-unchecked-account-no-owner.yaml:
+  fixture_dir: fixtures/VB-2022-0004
+  tp: 2          # bank, collateral
+  fp: 0

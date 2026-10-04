@@ -1,0 +1,113 @@
+# VB-2022-0007  Crema - a caller-supplied tick account set the fee
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0007
+slug: crema-finance-2022-07
+title: Crema - a caller-supplied tick account set the fee
+date: '2022-07-02'
+date_source: tx
+chains:
+- solana
+language: rust-native
+protocol:
+  name: Crema Finance
+  category: dex
+  forked_from: null
+loss_usd:
+  reported_min: 8000000
+  reported_max: 8800000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://www.halborn.com/blog/post/explained-the-crema-finance-hack-july-2022
+  - https://www.certik.com/blog/crema-finance-exploit
+  note: Halborn says about $8 million. CertiK says about $8.8 million. Recovered amounts are not recorded here because the cited pages do not agree on one figure.
+scope: code
+vuln_class: missing_owner_check
+tags:
+- concentrated_liquidity
+- capital_amplifier:flash_loan
+- missing_input_validation
+root_cause: Crema's fee math trusted data in a tick account. The project said the attacker created a
+  fake tick account and wrote an initialized tick address into it, which got past the usual owner check.
+  Flash-loan liquidity was deposited, a claim used the fake fee data, and the liquidity was withdrawn.
+preconditions:
+- tick_account_not_bound_to_pool
+- flash_loan_liquidity_available
+affected_contracts:
+- chain: solana
+  address: FYvpL2QT2LosftJ98fsZpRqiwyAiSevMGf6i8i4o89Dd
+  role: program invoked by the tick transaction named in the Crema thread
+  verified_on_explorer: true
+attack_txs:
+- chain: solana
+  hash: JdorRBPfKNWnZNhWcjwc9Uz5yYaA15CVjT8kLM12tVUqZUu28CqtVEuJ5KpjWHJmVtL7j7sQVhPHHrByhNEKqej
+- chain: solana
+  hash: 5kfoGgEvhBiHXz1MBVxn8rfJh3cf98m3D64YHE2Q1SsXLiaahvdK4hCJfkMA7jQFXLjP9YdNSTMSor3oXbKrLTev
+code_pattern:
+  language: rust
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Crema source)
+    fn claim_fee(tick: &AccountInfo) -> u64 {
+        u64::from_le_bytes(tick.data.borrow()[0..8].try_into().unwrap())
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Crema source)
+    fn claim_fee(tick: &AccountInfo, pool: &Pubkey, program_id: &Pubkey) -> u64 {
+        let (expected, _) = Pubkey::find_program_address(&[b"tick", pool.as_ref()], program_id);
+        assert_eq!(tick.key, &expected, "unexpected tick");
+        assert_eq!(tick.owner, program_id, "unexpected owner");
+        u64::from_le_bytes(tick.data.borrow()[0..8].try_into().unwrap())
+    }
+  explanation: Fee inputs have to be the pool's own tick account. An owner check that can be
+    satisfied by data written into a fake account is not a binding to that pool.
+poc:
+- kind: external
+  url: https://www.certik.com/blog/crema-finance-exploit
+  framework: solana-poc-framework
+  chain: solana
+  replay_status: unverified
+fix:
+  summary: Derive the tick address from the pool and require that owner and address both match.
+  reference_url: https://www.halborn.com/blog/post/explained-the-crema-finance-hack-july-2022
+severity:
+  rating: critical
+  rationale: Pool fees claimed from fabricated tick data. Cited pages say about $8 million to about $8.8 million.
+sources:
+- url: https://www.certik.com/blog/crema-finance-exploit
+  publisher: CertiK
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Own summary.
+- url: https://www.halborn.com/blog/post/explained-the-crema-finance-hack-july-2022
+  publisher: Halborn
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Own summary.
+- url: https://x.com/Crema_Finance/status/1543640153230495744
+  publisher: Crema Finance
+  type: primary
+  accessed: '2026-10-04'
+  license_note: Linked only. The thread fetch contained both signatures. They were then read with getTransaction.
+confidence:
+  overall: medium
+  root_cause: medium
+  loss: medium
+  date: high
+  notes: >-
+    Signatures from the Crema thread. On 2026-10-04, getTransaction on
+    https://api.mainnet-beta.solana.com. Example hash JdorRBPf...NEKqej is slot
+    139949307, 2022-07-02T18:49:27Z, and the only invoked program is the System program.
+    Tick hash 5kfoGgEv...rLTev is slot 139956760, 2022-07-02T20:07:57Z, err null, and
+    invokes FYvpL2QT2LosftJ98fsZpRqiwyAiSevMGf6i8i4o89Dd. CertiK dates the first
+    flash-loan attack to 2022-07-02 20:08 UTC, which matches the tick transaction,
+    not the earlier System-program transaction. The program id is not named in the
+    thread, so it is stored only as the invoked program. https://solana-rpc.publicnode.com
+    returned null for both signatures. needs_review is unchanged.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

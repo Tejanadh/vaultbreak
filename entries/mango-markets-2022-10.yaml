@@ -1,0 +1,119 @@
+# VB-2022-0011  Mango Markets - MNGO perps marked to a thin spot price
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0011
+slug: mango-markets-2022-10
+title: Mango Markets - MNGO perps marked to a thin spot price
+date: '2022-10-11'
+date_source: tx
+chains:
+- solana
+language: rust-native
+protocol:
+  name: Mango Markets
+  category: derivatives
+  forked_from: null
+loss_usd:
+  reported_min: 100000000
+  reported_max: null
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://sec3.dev/blog/mangoexploit
+  note: Sec3 says the exploit was for over $100M, and separately that over $120M of tokens were withdrawn and that bad debt was over $115M. reported_min is the "over $100M" floor. No single total was computed here, so reported_max is empty.
+scope: code
+vuln_class: oracle_manipulation
+tags:
+- spot_price_input
+- low_liquidity_state
+root_cause: Two accounts took opposite MNGO perpetual positions, then bought MNGO on thin spot venues
+  that fed the price Mango used. Sec3 records the long from 0.0382 to about 0.5 USDC. The long was
+  settled against the short, and the winning account borrowed the pool's liquid assets. The trades
+  followed the program's own rules. The break was marking a large perp to a spot price the trader could move.
+preconditions:
+- thin_spot_market
+- perp_marked_to_spot
+affected_contracts:
+- chain: solana
+  address: yUJw9a2PyoqKkH47i4yEGf4WXomSHMiK7Lp29Xs2NqM
+  role: fee payer on the four confirmed transactions; Sec3 calls this Account1
+  verified_on_explorer: true
+- chain: solana
+  address: 4ND8FVPjUGGjx9VuGFuJefDWpg3THb58c277hbVRnjNa
+  role: account key on the perp, settle, and withdraw transactions; Sec3 calls this MangoAccount1
+  verified_on_explorer: true
+- chain: solana
+  address: mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68
+  role: program invoked by the perp, settle, and withdraw transactions
+  verified_on_explorer: true
+attack_txs:
+- chain: solana
+  hash: 2xPS2ZefQ3QvvMpQ1FLLTdAwWARZ424BH4VZXJke2TeRYJ34Frt8FwD7sE6paGUHXSRv3o1M8VSfGBGANAmXHPQR
+- chain: solana
+  hash: 5o2wku1u3FYwjbAvVuCyWcN6rknLZSs4wjfA1ocuoVMWnqcRkuDMuU8RzZWh6DkDnZ5fKrVw2k4HK9zWiv1HE1Km
+- chain: solana
+  hash: SFVdKJpzm2hsK5Kq9LDBD47ZXQu85s5UffCYUrzsqZUBiWrCm1q7JG95PpRye42fqnZyAXeAvYPKxiV6urcEDv1
+- chain: solana
+  hash: 2J46z4LPo614eWeQpjZE6UvDhmHEYmBEayq6nXoekSATfFbHpmSBMBcZZ1qZLAQeFu1KDNy8ktSXSzVZXBKspgwY
+code_pattern:
+  language: rust
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Mango source)
+    fn collateral_value(spot_price: u64, position: i64) -> u64 {
+        spot_price * position.unsigned_abs()
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Mango source)
+    fn collateral_value(oracle_price: u64, spot_price: u64, position: i64) -> u64 {
+        let mark = oracle_price.min(spot_price);
+        mark * position.unsigned_abs()
+    }
+  explanation: A perp mark that reads the same spot pool the trader is buying does not bound the
+    position. The illustration uses a second price as a cap. It is not Mango's production oracle.
+poc:
+- kind: external
+  url: https://sec3.dev/blog/mangoexploit
+  framework: solana-poc-framework
+  chain: solana
+  replay_status: unverified
+fix:
+  summary: Do not let a thin spot print be the only mark for a leveraged perpetual.
+  reference_url: https://sec3.dev/blog/mangoexploit
+severity:
+  rating: critical
+  rationale: The pool's liquid assets were borrowed against a perp marked to a price the trader had just moved. Sec3 says over $100M.
+sources:
+- url: https://sec3.dev/blog/mangoexploit
+  publisher: Sec3
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Signatures and account labels taken from this page, then read with getTransaction.
+- url: https://www.cfbenchmarks.com/blog/we-need-to-talk-about-crypto-oracles
+  publisher: CF Benchmarks
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Describes the oracle path. It is not the source of the signatures.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: >-
+    Four signatures from Sec3, not the whole set of 44 transactions that page counts.
+    On 2026-10-04, getTransaction on https://api.mainnet-beta.solana.com returned err
+    null for each. Perp order slot 154863297 at 2022-10-11T22:23:40Z. Spot buy slot
+    154863595 at 2022-10-11T22:26:30Z. SettlePnl slot 154863886 at 2022-10-11T22:29:27Z.
+    One SOL withdrawal slot 154864620 at 2022-10-11T22:36:34Z. Sec3's clock times match
+    those block times. The program id mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68 is the
+    invoked program on the perp, settle, and withdraw transactions. It is not printed as
+    text on the Sec3 page, so the role stays "program invoked". These four signatures
+    were not sent to https://solana-rpc.publicnode.com. That host returned null for the
+    other historical signatures it was given the same day, so only mainnet-beta is cited.
+    needs_review is unchanged.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

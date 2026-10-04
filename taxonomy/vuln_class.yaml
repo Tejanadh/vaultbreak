@@ -1,7 +1,8 @@
-# Vaultbreak root-cause taxonomy, v1 (frozen vocabulary; extend via PR + version bump).
+# Vaultbreak root-cause taxonomy, v2 (frozen vocabulary; extend via PR + version bump).
 # Source: section 1.2 of the Vaultbreak research report. Mappings to other
 # vocabularies are best-effort and are *our* judgement, not an official crosswalk.
-version: 1
+# v2 adds the Sealevel classes used by the Solana entries.
+version: 2
 classes:
   reentrancy:
     name: Reentrancy
@@ -83,8 +84,50 @@ classes:
   solana_specific:
     name: Solana-specific
     description: >-
-      Sealevel classes: signer/owner checks, account confusion, PDA seeds, arbitrary
-      CPI, sysvar spoofing. Stretch goal; no entries yet.
+      Catch-all kept from v1. New entries should use missing_signer_check,
+      missing_owner_check, account_type_confusion, pda_seed_collision,
+      arbitrary_cpi, or unchecked_sysvar.
+    defillama: []
+    swc: []
+  missing_signer_check:
+    name: Missing signer check
+    description: >-
+      A Solana account is treated as an authority without requiring that account
+      to have signed the transaction.
+    defillama: []
+    swc: []
+  missing_owner_check:
+    name: Missing owner check
+    description: >-
+      A Solana account is accepted without checking the program that owns it.
+    defillama: []
+    swc: []
+  account_type_confusion:
+    name: Account or type confusion
+    description: >-
+      A caller-supplied account is treated as a trusted account of another type,
+      or a chain of accounts is checked only against itself.
+    defillama: []
+    swc: []
+  pda_seed_collision:
+    name: PDA seed collision
+    description: >-
+      Program-derived address seeds are shared or under-specified, so two
+      different meanings can resolve to one address.
+    defillama: []
+    swc: []
+  arbitrary_cpi:
+    name: Arbitrary CPI
+    description: >-
+      A cross-program invocation lets the caller choose the target program or
+      the instruction data.
+    defillama: []
+    swc: []
+  unchecked_sysvar:
+    name: Unchecked sysvar or instruction introspection
+    description: >-
+      Sysvar data, including the instructions sysvar, is read from an account
+      the caller supplied instead of the canonical sysvar address.
     defillama: []
     swc: []
   operational:

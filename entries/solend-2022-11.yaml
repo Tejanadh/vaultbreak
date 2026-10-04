@@ -1,0 +1,106 @@
+# VB-2022-0012  Solend - USDH price came from one Saber pool
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0012
+slug: solend-2022-11
+title: Solend - USDH price came from one Saber pool
+date: '2022-11-02'
+date_source: postmortem
+chains:
+- solana
+language: rust-native
+protocol:
+  name: Solend
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 1260000
+  reported_max: 1260000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://ackee.xyz/blog/2022-solana-hacks-explained-solend/
+  - https://www.theblock.co/post/182055/solend-exploited-attack
+  note: Ackee and The Block both say $1.26 million of bad debt. That is the figure stored. It was not recomputed from a transaction.
+scope: code
+vuln_class: oracle_manipulation
+tags:
+- spot_price_input
+- low_liquidity_state
+root_cause: Solend priced USDH from a Switchboard feed that read one Saber pool. Ackee says an attempt
+  on 28 October was arbitraged in the same slot, so the oracle never stored the pumped price. On
+  2 November the same buy was followed by transactions that write-locked the pool account, the oracle
+  stored the high price, and USDH deposited as collateral borrowed the Stable, Coin98, and Kamino pools.
+preconditions:
+- single_pool_oracle
+- oracle_update_can_land_on_a_moved_price
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: rust
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Solend source)
+    fn collateral_usd(pool_price: u64, amount: u64) -> u64 {
+        pool_price * amount
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (minimal stand-in, not Solend source)
+    fn collateral_usd(oracle_a: u64, oracle_b: u64, amount: u64) -> u64 {
+        let price = oracle_a.min(oracle_b);
+        price * amount
+    }
+  explanation: A lending price that has only one thin pool as input can be moved for the slot the
+    oracle samples. A second independent price, with the lower one used, is the illustration here.
+    It is not a claim about Solend's later oracle.
+poc:
+- kind: external
+  url: https://ackee.xyz/blog/2022-solana-hacks-explained-solend/
+  framework: solana-poc-framework
+  chain: solana
+  replay_status: unverified
+fix:
+  summary: Do not price collateral from a single low-liquidity pool.
+  reference_url: https://www.theblock.co/post/182055/solend-exploited-attack
+severity:
+  rating: high
+  rationale: Three isolated pools were left with bad debt. Ackee and The Block both say $1.26 million.
+sources:
+- url: https://ackee.xyz/blog/2022-solana-hacks-explained-solend/
+  publisher: Ackee Blockchain
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Own summary. This page does not print a transaction signature.
+- url: https://www.theblock.co/post/182055/solend-exploited-attack
+  publisher: The Block
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Own summary. This page does not print a transaction signature.
+- url: https://www.immunebytes.com/blog/solends-isolated-pools-exploitation-nov-2-2022-detailed-analysis/
+  publisher: ImmuneBytes
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: >-
+    Linked only. The page prints two signatures. getTransaction dates both to
+    2022-10-28, so they are not stored as the 2 November attack.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: >-
+    No November signature was confirmed. ImmuneBytes prints
+    3EBSM7nD5YFf28swj7Tm5bCERymzN8twfoirkEZX2sN2FCuDMzyQ2zYLDX3DiZ6ScUak3XCFwHaAEUvqDHZZQ7MM
+    and 5HLQwnpm2jLP4FJwin7Ae59ayXgJ9U41H5JushgkY1kQEe5q9Hnk5ksNPt6f7YpayhWp4xTqya2WKjYaUghbnhTV.
+    On 2026-10-04, getTransaction on https://api.mainnet-beta.solana.com returned both at slot
+    157809596, block time 2022-10-28T01:27:35Z, err null. Ackee dates 28 October as the failed
+    attempt and 2 November as the drain. Those two hashes are real and are not the November
+    attack, so attack_txs is empty. Pool addresses printed elsewhere were not in these receipts
+    and are not stored. https://solana-rpc.publicnode.com returned null for historical
+    signatures in this pass. needs_review is unchanged.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null
