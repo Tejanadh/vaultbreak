@@ -28,6 +28,7 @@ ten fast ones.
 4. If you used an LLM, set `provenance.llm_assisted: true`. Do not let it supply addresses,
    amounts or dates that are not in a source you opened.
 5. Run `scripts/check_all.sh` (and `python scripts/validate.py --check-links` if you have network).
+6. `python scripts/vb.py show <id>` should print the entry you just added.
 
 ## Adding a detector
 

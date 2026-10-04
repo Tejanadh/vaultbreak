@@ -5,7 +5,7 @@ Only incidents that report marked verified (V, V-2, V-3) and that are EVM/Solidi
 were used. Source links were HTTP-checked on 2026-10-04 (two Medium links return 403 to bots
 and are unverified by script).
 
-## Included (20)
+## Included (21)
 
 | ID | Incident | Class | Detector |
 |---|---|---|---|
@@ -20,6 +20,7 @@ and are unverified by script).
 | VB-2023-0015 | Conic Finance | reentrancy | semgrep (draft; does not flag its own snippet) |
 | VB-2023-0016 | Curve / Vyper | reentrancy | none possible from source (compiler bug) |
 | VB-2023-0017 | KyberSwap Elastic | rounding_arithmetic | - |
+| VB-2024-0018 | Radiant Capital (Jan 2024) | donation_inflation | semgrep: vb-exchange-rate-from-balance |
 | VB-2024-0019 | Hedgey Finance | arbitrary_external_call | semgrep: vb-arbitrary-transferfrom-approve (partial) |
 | VB-2024-0020 | Sonne Finance | donation_inflation | - |
 | VB-2024-0021 | UwU Lend | oracle_manipulation | - |
@@ -39,14 +40,15 @@ and are unverified by script).
 | Truebit | Report notes the source page was not read in full |
 | Audius | Report: exact date unverified (2022-07-23..25) |
 | Multichain/AnySwap | Report evidence was a search synthesis plus DefiLlama only |
-| Radiant (Jan 2024) | Dropped to stay within the 15-20 target; it is verified and a good next entry |
+| Radiant (Jan 2024) | Added as VB-2024-0018. Still `needs_review: true`. Tx hashes were read from an Arbitrum node on 2026-10-04. |
 | Kelp, Drift, zkLend | Operational/hybrid, or not EVM (Starknet), or beyond this phase's scope |
 | Wormhole, Cashio, Crema, Mango, Loopscale, Cetus | Solana / Move, not EVM |
 | Orbit, Omni replay, Nirvana, Allbridge, Raydium, Aquifer | Report marks them unverified |
 
 ## Detector reliability
 
-* All four pass their fixtures with exact finding counts (`detectors/expected.yaml`).
+* All five pass their fixtures with exact finding counts (`detectors/expected.yaml`).
+* `vb-exchange-rate-from-balance` only matches `balanceOf(address(this))` divided by a share supply. It does not understand Aave `liquidityIndex`. The Radiant entry uses it as the code shape, not as a proof about the live pool.
 * The three Semgrep rules also fire on the vulnerable snippet of their own entries and stay silent on
   every fixed snippet and on every other entry's snippets (checked 2026-10-04), except Conic's
   ETH/WETH guard mix-up, which a syntactic rule cannot see. That entry's detector is `draft`.
@@ -59,7 +61,8 @@ and are unverified by script).
 
 ## Known data gaps
 
-* No on-chain addresses or tx hashes; no Foundry replay (`replay_status: unverified`).
+* Radiant (VB-2024-0018) is the only entry with node-checked tx hashes and contract addresses. Every other `affected_contracts` / `attack_txs` list is still empty. No Foundry mainnet replay (`replay_status: unverified` everywhere, including Radiant).
+* `python scripts/vb.py` queries `build/vaultbreak.sqlite` (`list`, `show`, `search`).
 * Dates differ by about a day between DeFiHackLabs and other sources for several incidents; the
   entry's `confidence.notes` says so.
 * `date_source` is `aggregator` or `postmortem`, never `tx`, because no tx hashes were verified.
@@ -67,7 +70,7 @@ and are unverified by script).
 
 ## Next steps (suggested)
 
-1. Human review of all 20 entries (set `needs_review: false`, fill `human_reviewed_by`).
-2. Add explorer-verified addresses and tx hashes.
+1. Human review of all 21 entries (set `needs_review: false`, fill `human_reviewed_by`).
+2. Explorer-verified addresses and tx hashes for the other 20 entries. Radiant is the pattern: read the node, do not copy a hash you have not fetched.
 3. More detectors where a reliable shape exists (e.g. zero-value root in initialisers).
 4. Foundry replay harness for ~10 entries; Pagefind for full-text search.

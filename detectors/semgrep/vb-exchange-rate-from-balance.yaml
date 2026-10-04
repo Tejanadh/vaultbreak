@@ -1,0 +1,19 @@
+rules:
+  - id: vb-exchange-rate-from-balance
+    languages: [solidity]
+    severity: WARNING
+    message: >-
+      Share price divides the contract's own token balance by the share supply.
+      A direct transfer can move that price (Vaultbreak class: donation / inflation,
+      tag exchange_rate_donation).
+    metadata:
+      vaultbreak_entries: [VB-2024-0018]
+      vaultbreak_class: donation_inflation
+      note: >-
+        Heuristic and syntactic. Own rule. It does not see Aave index math, virtual
+        offsets, or whether the market was seeded. A balanceOf that is not divided
+        into a rate is intentionally not a hit.
+    patterns:
+      - pattern-either:
+          - pattern: $T.balanceOf(address(this)) * $SCALE / $SHARES
+          - pattern: $T.balanceOf(address(this)) / $SHARES

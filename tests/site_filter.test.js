@@ -27,6 +27,7 @@ const det = filterEntries(all, { hasDetector: true });
 assert.ok(det.length >= 5 && det.every((e) => e.has_detector), "has detector filter");
 // text search: all tokens must match
 assert.ok(ids({ text: "delegatecall" }).includes("VB-2025-0025"), "text finds Bybit by delegatecall");
+assert.ok(ids({ text: "radiant empty" }).includes("VB-2024-0018"), "text finds Radiant");
 assert.ok(ids({ text: "read only reentrancy" }).includes("VB-2023-0013"), "text finds Sentiment");
 assert.strictEqual(ids({ text: "zzzznotaword" }).length, 0, "no match -> empty");
 // combined filters narrow

@@ -16,3 +16,7 @@ detectors/slither/vb_eth_send_before_write.py:
   fixture_dir: fixtures/VB-2022-0006
   tp: 2          # withdraw, exitMarket
   fp: 0
+detectors/semgrep/vb-exchange-rate-from-balance.yaml:
+  fixture_dir: fixtures/VB-2024-0018
+  tp: 2          # exchangeRate, priceOfShare
+  fp: 0

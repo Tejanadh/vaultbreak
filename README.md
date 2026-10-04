@@ -16,23 +16,27 @@ provenance (including where aggregators disagree). Quality over volume.
 
 ## Status (honest)
 
-Early draft, **Phase 0/1 of the plan**. Local only: nothing here has been published or pushed.
+Early draft, **Phase 0/1 of the plan**. The repo is public at
+https://github.com/Tejanadh/vaultbreak. Entries are still unreviewed.
 
-* **20 EVM entries**, all from incidents the research report marked as verified (2022-2025).
-  Entries are **LLM-drafted from the report's verified sources and not yet human-reviewed**:
+* **21 EVM entries**, from incidents the research report marked as verified (2022-2025), plus
+  Radiant Capital (January 2024), which that report had verified and then deferred.
+  Entries are **LLM-drafted and not yet human-reviewed**:
   every entry carries `confidence.needs_review: true` and `provenance.human_reviewed_by: null`.
-* **Counts:** 6 reentrancy, 3 donation/inflation, 2 rounding, 2 arbitrary external call,
+* **Counts:** 6 reentrancy, 4 donation/inflation, 2 rounding, 2 arbitrary external call,
   2 bridge verification, 1 each governance, delegatecall, access control, proxy/init, oracle.
-  13 critical, 7 high. Overall confidence: 6 high, 14 medium.
-* **4 detectors** with fixtures and exact expected results (3 Semgrep, 1 Slither); 6 entries
+  13 critical, 8 high. Overall confidence: 6 high, 15 medium.
+* **5 detectors** with fixtures and exact expected results (4 Semgrep, 1 Slither); 7 entries
   reference one. They are **heuristic, syntactic checks of a code shape**, not proofs that
   a codebase is safe or vulnerable. Limits are written in each entry's `detectors[].notes`.
-* **No on-chain data yet:** `affected_contracts` and `attack_txs` are empty everywhere. We do not
-  invent addresses or hashes; they must be read off a block explorer first.
+* **On-chain data:** only Radiant (`VB-2024-0018`) has addresses and tx hashes, and those were
+  read from an Arbitrum node. Every other entry leaves `affected_contracts` and `attack_txs`
+  empty. We do not invent addresses or hashes.
 * **PoCs are links only** (DeFiHackLabs). `replay_status` is `unverified` everywhere; nothing
   has been replayed on a fork.
-* **Not covered yet:** Solana/Move/Cairo entries, Foundry replay, bytecode matching, CLI,
-  `labels_disagree` page, Pagefind full-text index (the site uses a tiny client-side filter).
+* **Not covered yet:** Solana/Move/Cairo entries, Foundry mainnet replay, bytecode matching,
+  a `labels_disagree` page, Pagefind full-text index (the site uses a tiny client-side filter).
+  A query CLI does exist: `python scripts/vb.py`.
 * Incidents the report marked partial or unverified (Cork, Texture, Bunni mechanism, Tectonic,
   Truebit, Orbit, Omni replay) are **deliberately skipped**. So are non-EVM incidents.
 * The research report's ID numbers are kept (e.g. `VB-2023-0013` is Sentiment) so gaps in the
@@ -46,7 +50,7 @@ schema/       entry.schema.yaml (authoring) + entry.schema.json (generated)
 taxonomy/     vuln_class.yaml, tags.yaml, chains.yaml
 detectors/    semgrep/*.yaml, slither/*.py, expected.yaml (exact expected results)
 fixtures/     <entry id>/{vulnerable,fixed}.sol  (original, tiny)
-scripts/      validate.py, compile_snippets.py, test_detectors.py, build.py
+scripts/      validate.py, compile_snippets.py, test_detectors.py, build.py, vb.py
 site/src/     static site sources (plain HTML/JS, no framework)
 tests/        validator negative tests, site filter test
 docs/         LICENSING.md, STATUS.md
@@ -61,6 +65,8 @@ pip install -r requirements.txt
 solc-select install 0.8.20 && solc-select use 0.8.20
 
 scripts/check_all.sh   # validate, unit tests, compile snippets, detector tests, build site, site tests
+python scripts/vb.py search "empty market"
+python scripts/vb.py show VB-2024-0018
 python scripts/validate.py --check-links   # network: HEAD/GET every source URL
 cd build/site && python3 -m http.server    # then open http://localhost:8000
 ```

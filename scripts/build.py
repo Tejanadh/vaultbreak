@@ -135,7 +135,9 @@ def build_sqlite(entries, flats, path):
                     e["vuln_class"], f["severity"], e["scope"], f["loss_min"], f["loss_max"], int(f["has_detector"]),
                     f["confidence"], e["root_cause"], ",".join(e["tags"]), json.dumps(e)))
     try:
-        db.execute("create virtual table entries_fts using fts5(id, title, root_cause, tags, content='')")
+        # A normal FTS5 table, not contentless: content='' stores no column values,
+        # so a later SELECT of id comes back NULL and the query CLI cannot join.
+        db.execute("create virtual table entries_fts using fts5(id, title, root_cause, tags)")
         for e, f in zip(entries, flats):
             db.execute("insert into entries_fts values (?,?,?,?)", (e["id"], e["title"], e["root_cause"], f["text"]))
         fts = True

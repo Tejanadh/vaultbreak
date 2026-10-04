@@ -1,0 +1,164 @@
+# VB-2024-0018  Radiant Capital - empty new USDC reserve, index moved, WETH borrowed
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2024-0018
+slug: radiant-capital-2024-01
+title: Radiant Capital - empty new USDC reserve let a flash loan move the index
+date: '2024-01-02'
+date_source: tx
+chains:
+- arbitrum
+language: solidity
+protocol:
+  name: Radiant Capital
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 4500000
+  reported_max: 4600000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://www.observers.com/defi/flash-loan-attack-drains-4-5-million-forces-radiant-capital-to-pause-operations-on-arbitrum/
+  - https://dn.institute/research/cyberattacks/incidents/2024-01-03-radiant-capital/
+  note: >-
+    The project postmortem quantifies 1900 WETH borrowed against the new market, not a dollar
+    figure. Secondary write-ups put that at about $4.5M and about $4.6M (1902 ETH). The range
+    is those two reports, not a conversion we computed.
+scope: code
+vuln_class: donation_inflation
+tags:
+- empty_market
+- exchange_rate_donation
+- rounding_direction
+- capital_amplifier:flash_loan
+- price_accounting_manipulation
+root_cause: A native USDC market on Arbitrum was listed with an empty reserve. The project's postmortem
+  says the attacker used a flash loan, in the same minute as that listing, to move liquidityIndex
+  because the reserve had no deposits yet, then borrowed about 1900 WETH. Secondary write-ups also
+  point at rounding in the burn path. The flash loan is how the size was funded. The break is the
+  empty reserve plus index math that a donation can push.
+preconditions:
+- market_listed_with_empty_reserve
+- index_reads_raw_reserve_balance
+- burn_rounding_favours_the_attacker
+affected_contracts:
+- chain: arbitrum
+  address: '0x40a2accbd92bca938b02010e17a5b8929b49130d'
+  role: callee of the market-initialisation transaction named in the project postmortem
+  verified_on_explorer: true
+- chain: arbitrum
+  address: '0xf4b1486dd74d07706052a33d31d7c0aafd0659e1'
+  role: logged during the verified call from the exploit contract; the public PoC index labels it the lending pool
+  verified_on_explorer: true
+attack_txs:
+- chain: arbitrum
+  hash: '0x0e5330ad77b9b806cb9f6ea595d58552f341dbad0691e0599ab5f1caf214c247'
+- chain: arbitrum
+  hash: '0x81a1414641bc823cd623208ba4c19a6cfc94f363050487bb122c15dceadc8937'
+- chain: arbitrum
+  hash: '0x1ce7e9a9e3b6dd3293c9067221ac3260858ce119ecb7ca860eac28b2474c7c9b'
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Radiant or Aave source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function balanceOf(address) external view returns (uint256); }
+    contract VulnerableIndex {
+        IERC20 public underlying;
+        uint256 public totalShares;
+        function exchangeRate() public view returns (uint256) {
+            if (totalShares == 0) return 1e18;
+            return underlying.balanceOf(address(this)) * 1e18 / totalShares;
+        }
+        function priceOfShare() public view returns (uint256) {
+            return underlying.balanceOf(address(this)) * 1e18 / totalShares;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Radiant or Aave source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function balanceOf(address) external view returns (uint256); }
+    contract SaferIndex {
+        IERC20 public underlying;
+        uint256 public totalShares;
+        uint256 public trackedCash;
+        function exchangeRate() public view returns (uint256) {
+            if (totalShares == 0) return 1e18;
+            return trackedCash * 1e18 / totalShares;
+        }
+        function idleBalance() public view returns (uint256) {
+            return underlying.balanceOf(address(this));
+        }
+    }
+  explanation: 'Do not price shares from the raw token balance. Track cash internally, and do not
+    list a market until it holds a seeded deposit that an attacker cannot be the sole supplier of.'
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-exchange-rate-from-balance.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2024-0018/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2024-0018/fixed.sol
+  notes: >-
+    Syntactic only. It flags a rate function that divides the contract's own token balance by a
+    share supply. It does not understand Aave liquidityIndex, seeding, or rounding direction.
+    A raw balanceOf that is not used as the rate (see idleBalance in the fixed fixture) is silent.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-01/RadiantCapital_exp.sol
+  framework: foundry
+  chain: arbitrum
+  replay_status: unverified
+fix:
+  summary: Do not open a market on an empty reserve. Seed liquidity first, and do not let a direct token transfer move the index.
+  reference_url: https://medium.com/@RadiantCapital/post-mortem-report-radiant-capital-aea46cb985ae
+severity:
+  rating: high
+  rationale: About 1900 WETH was borrowed from one newly listed market. The rest of the protocol was paused. Dollar reports cluster around $4.5-4.6M.
+sources:
+- url: https://medium.com/@RadiantCapital/post-mortem-report-radiant-capital-aea46cb985ae
+  publisher: Radiant Capital
+  type: postmortem
+  accessed: '2026-10-04'
+  license_note: Linked only. The postmortem text is not copied. Two transaction hashes and the 1900 WETH figure are taken from it and the hashes were re-read on an Arbitrum node.
+- url: https://www.observers.com/defi/flash-loan-attack-drains-4-5-million-forces-radiant-capital-to-pause-operations-on-arbitrum/
+  publisher: Observers
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Used for the $4.5M loss report, not for wording.
+- url: https://dn.institute/research/cyberattacks/incidents/2024-01-03-radiant-capital/
+  publisher: Distributed Networks Institute
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. Used for the $4.6M / 1902 ETH loss report, not for wording.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-01/RadiantCapital_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only. The file is SPDX UNLICENSED, so it is not re-hosted. Its attack-tx hash was checked on an Arbitrum node.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: >-
+    Date is the block timestamp of the initialisation tx (2024-01-02 18:53:23Z, block 166405628).
+    The exploit-contract creation is block 166405650, matching the postmortem's clock. Hash
+    0x1ce7e9a9e3b6dd3293c9067221ac3260858ce119ecb7ca860eac28b2474c7c9b is the attack tx named by
+    the PoC index; the node shows it in block 166405687, from the same sender, to the contract
+    created in the postmortem's deployment tx. Dollar loss is a range across two secondary
+    reports. Id VB-2024-0018 fills the chronological gap STATUS left for this incident. If the
+    original research report assigned that number to a different skipped case, renumber this one.
+  needs_review: true
+labels_disagree:
+- source: Observers (citing Beosin)
+  label: rounding error
+  note: The postmortem leads with an empty reserve and liquidityIndex. Other write-ups lead with rounding. Both describe this same incident.
+- source: several alerts
+  label: flash loan attack
+  note: Flash loan is recorded as a tag. It is how the attacker sized the trade, not the root-cause class.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null
