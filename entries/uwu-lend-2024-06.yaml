@@ -1,0 +1,122 @@
+# VB-2024-0021  UwU Lend - median oracle with several spot-price inputs moved by flash-loaned trades
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2024-0021
+slug: uwu-lend-2024-06
+title: UwU Lend - median oracle with several spot-price inputs moved by flash-loaned trades
+date: '2024-06-10'
+date_source: aggregator
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: UwU Lend
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 19400000
+  reported_max: 19400000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://slowmist.medium.com/analysis-of-the-uwu-lend-hack-9502b2c06dbe
+  note: 'Report: about $19.4M, plus about $3.7M on 2024-06-13 per DefiLlama (a second event, not included
+    here).'
+scope: code
+vuln_class: oracle_manipulation
+tags:
+- median_oracle_thin_inputs
+- spot_price_input
+- capital_amplifier:flash_loan
+- stablecoin_collateral_pricing
+root_cause: The sUSDe price was the median of eleven sources, but five of them were instantaneous prices
+  read from Curve pools. A median only resists manipulation if a majority of inputs are hard to move,
+  and here flash-loaned trades in the Curve pools could shift enough inputs at once to move the median
+  itself.
+preconditions:
+- median_over_mixed_quality_feeds
+- multiple_inputs_are_instantaneous_pool_prices
+- flash_loan_liquidity_available
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not UwU's source)
+    pragma solidity ^0.8.20;
+    interface IFeed { function read() external view returns (uint256); }
+    contract VulnerableMedianOracle {
+        IFeed[] public feeds;                  // some feeds are spot prices from AMM pools
+        function price() external view returns (uint256) {
+            uint256 n = feeds.length;
+            uint256[] memory p = new uint256[](n);
+            for (uint256 i = 0; i < n; i++) p[i] = feeds[i].read();
+            for (uint256 i = 1; i < n; i++)    // insertion sort, then take the middle
+                for (uint256 j = i; j > 0 && p[j - 1] > p[j]; j--) (p[j - 1], p[j]) = (p[j], p[j - 1]);
+            return p[n / 2];
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not UwU's source)
+    pragma solidity ^0.8.20;
+    interface IFeed { function read() external view returns (uint256); }
+    contract SaferMedianOracle {
+        struct Feed { IFeed feed; bool manipulationResistant; }   // push oracle or long TWAP
+        Feed[] public feeds;
+        function price() external view returns (uint256) {
+            uint256 n = feeds.length;
+            uint256[] memory p = new uint256[](n);
+            uint256 resistant;
+            for (uint256 i = 0; i < n; i++) {
+                p[i] = feeds[i].feed.read();
+                if (feeds[i].manipulationResistant) resistant++;
+            }
+            require(resistant * 2 > n, "majority must resist manipulation");
+            for (uint256 i = 1; i < n; i++)
+                for (uint256 j = i; j > 0 && p[j - 1] > p[j]; j--) (p[j - 1], p[j]) = (p[j], p[j - 1]);
+            return p[n / 2];
+        }
+    }
+  explanation: Count the manipulation-resistant inputs, not just the inputs. Spot AMM prices are cheap
+    to move inside one transaction; a median is only as strong as its majority.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-06/UwuLend_First_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Replace spot-price inputs with push oracles or long TWAPs and enforce a manipulation-resistant
+    majority.
+  reference_url: https://slowmist.medium.com/analysis-of-the-uwu-lend-hack-9502b2c06dbe
+severity:
+  rating: high
+  rationale: About $19.4M lost through collateral mispricing.
+sources:
+- url: https://slowmist.medium.com/analysis-of-the-uwu-lend-hack-9502b2c06dbe
+  publisher: SlowMist
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-06/UwuLend_First_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: high
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Report marks this V-2 (Quill agrees with SlowMist, but its URL is not in the report so it is
+    not cited). DeFiHackLabs index is the second link.
+  needs_review: true
+labels_disagree:
+- source: OAK (onchainattack.org)
+  label: Manipulated input attributed to a Sushiswap pair
+  note: Disagrees with SlowMist/Quill (Curve get_p); OAK page appears inconsistent.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

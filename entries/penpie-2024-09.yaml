@@ -1,0 +1,120 @@
+# VB-2024-0023  Penpie - fake Pendle market reentered harvest to inflate reward accounting
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2024-0023
+slug: penpie-2024-09
+title: Penpie - fake Pendle market reentered harvest to inflate reward accounting
+date: '2024-09-03'
+date_source: aggregator
+chains:
+- ethereum
+- arbitrum
+language: solidity
+protocol:
+  name: Penpie
+  category: yield
+  forked_from: null
+loss_usd:
+  reported_min: 27000000
+  reported_max: 27000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/penpie-rekt/
+scope: code
+vuln_class: reentrancy
+tags:
+- callback_reentrancy
+- untrusted_market_registration
+- balance_delta_accounting
+- reward_inflation
+root_cause: Anyone could register a Pendle market with the protocol, so the attacker registered a fake
+  one they controlled. When the protocol harvested rewards it called into that market, which re-entered
+  the harvest function before the first call had finished accounting. The nested call inflated the attacker's
+  staking balance, which they then redeemed for real funds.
+preconditions:
+- permissionless_market_registration
+- harvest_calls_external_untrusted_contract
+- no_reentrancy_guard_on_harvest
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Penpie's source)
+    pragma solidity ^0.8.20;
+    interface IMarket { function redeemRewards(address user) external; }
+    interface IToken { function balanceOf(address) external view returns (uint256); }
+    contract VulnerableHarvester {
+        IToken public reward;
+        mapping(address => uint256) public accrued;
+        mapping(address => bool) public registered;
+        function register(address market) external { registered[market] = true; }  // permissionless
+        // Balance-delta accounting around a call into an untrusted market:
+        // a reentrant harvest inside redeemRewards double counts the same tokens.
+        function harvest(address market) external {
+            require(registered[market], "unknown market");
+            uint256 before = reward.balanceOf(address(this));
+            IMarket(market).redeemRewards(address(this));
+            accrued[market] += reward.balanceOf(address(this)) - before;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Penpie's source)
+    pragma solidity ^0.8.20;
+    interface IMarket { function redeemRewards(address user) external; }
+    interface IToken { function balanceOf(address) external view returns (uint256); }
+    contract SaferHarvester {
+        IToken public reward;
+        address public admin;
+        uint256 private _lock = 1;
+        mapping(address => uint256) public accrued;
+        mapping(address => bool) public approvedMarket;
+        modifier nonReentrant() { require(_lock == 1, "reentrant"); _lock = 2; _; _lock = 1; }
+        function approve(address market) external { require(msg.sender == admin, "admin only"); approvedMarket[market] = true; }
+        function harvest(address market) external nonReentrant {
+            require(approvedMarket[market], "market not approved");
+            uint256 before = reward.balanceOf(address(this));
+            IMarket(market).redeemRewards(address(this));
+            accrued[market] += reward.balanceOf(address(this)) - before;
+        }
+    }
+  explanation: 'Two fixes work together: only call markets an admin has vetted, and put a mutex on every
+    function that makes an external call before finishing its accounting.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-09/Penpiexyzio_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Vet markets before registration and add reentrancy guards on harvest paths.
+  reference_url: https://rekt.news/penpie-rekt/
+severity:
+  rating: critical
+  rationale: About $27M drained across two chains.
+sources:
+- url: https://rekt.news/penpie-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-09/Penpiexyzio_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: high
+  date: high
+  notes: Single analysis source (Rekt) plus the PoC index. Exact internal accounting variables are not
+    confirmed here; the snippet shows the shape only.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

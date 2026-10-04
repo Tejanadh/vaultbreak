@@ -1,0 +1,122 @@
+# VB-2024-0020  Sonne Finance - new market executable by anyone, exploited in the same transaction
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2024-0020
+slug: sonne-finance-2024-05
+title: Sonne Finance - new market executable by anyone, exploited in the same transaction
+date: '2024-05-15'
+date_source: aggregator
+chains:
+- optimism
+language: solidity
+protocol:
+  name: Sonne Finance
+  category: lending
+  forked_from: Compound V2
+loss_usd:
+  reported_min: 20000000
+  reported_max: 20000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/sonne-finance-rekt/
+scope: code
+vuln_class: donation_inflation
+tags:
+- empty_market
+- timelock_execution_race
+- governance_timing
+- capital_amplifier:flash_loan
+- compound_fork
+root_cause: A governance action that listed a new VELO market became executable by anyone once its timelock
+  expired, and it did not seed the market with liquidity. The attacker executed the queued proposal themselves
+  and, in the same transaction, exploited the brand-new empty market using the usual donation and rounding
+  trick on a Compound-style exchange rate.
+preconditions:
+- permissionless_timelock_execute
+- market_listed_without_seed_liquidity
+- compound_v2_exchange_rate_logic
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Sonne's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableTimelock {
+        struct Op { address target; bytes data; uint256 eta; bool done; }
+        mapping(uint256 => Op) public ops;
+        // Anyone may execute once eta passes, and 'list market' is a standalone op,
+        // so the empty market exists in the same tx as the caller's exploit.
+        function execute(uint256 id) external {
+            Op storage o = ops[id];
+            require(block.timestamp >= o.eta && !o.done, "not ready");
+            o.done = true;
+            (bool ok, ) = o.target.call(o.data);
+            require(ok, "failed");
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Sonne's source)
+    pragma solidity ^0.8.20;
+    contract SaferTimelock {
+        struct Op { address[] targets; bytes[] datas; uint256 eta; bool done; }
+        mapping(uint256 => Op) public ops;
+        address public executor;
+        // Listing and seeding are ONE batched op (list market, then mint dead shares),
+        // and only a trusted executor may trigger it.
+        function executeBatch(uint256 id) external {
+            require(msg.sender == executor, "not executor");
+            Op storage o = ops[id];
+            require(block.timestamp >= o.eta && !o.done, "not ready");
+            o.done = true;
+            for (uint256 i = 0; i < o.targets.length; i++) {
+                (bool ok, ) = o.targets[i].call(o.datas[i]);
+                require(ok, "failed");
+            }
+        }
+    }
+  explanation: 'Two independent controls would each have helped: make the activation atomic with seeding,
+    and do not let arbitrary callers choose the moment an unsafe state becomes live.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-05/Sonne_exp.sol
+  framework: foundry
+  chain: optimism
+  replay_status: unverified
+fix:
+  summary: Bundle market listing with seed liquidity in a single governance action and restrict who can
+    trigger execution.
+  reference_url: https://rekt.news/sonne-finance-rekt/
+severity:
+  rating: high
+  rationale: About $20M lost; repeats the empty-market class in a fork.
+sources:
+- url: https://rekt.news/sonne-finance-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-05/Sonne_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: high
+  date: medium
+  notes: DeFiHackLabs dates it 2024-05-14 and calls it precision loss; the report and Rekt use 2024-05-15.
+    Single analysis source (Rekt) plus the PoC index. The flash-loan tag follows the report's class table,
+    not the incident row.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Precision loss
+  note: Describes the arithmetic step; our primary class stresses the empty market and timing.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

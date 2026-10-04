@@ -1,0 +1,138 @@
+# VB-2025-0026  KiloEx - open forwarder entry point let anyone push keeper-only price updates
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2025-0026
+slug: kiloex-2025-04
+title: KiloEx - open forwarder entry point let anyone push keeper-only price updates
+date: '2025-04-14'
+date_source: postmortem
+chains:
+- bsc
+- base
+- taiko
+- opbnb
+- manta
+language: solidity
+protocol:
+  name: KiloEx
+  category: derivatives
+  forked_from: null
+loss_usd:
+  reported_min: 7400000
+  reported_max: 8440000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/kiloex-rekt/
+  - https://www.quillaudits.com/blog/hack-analysis/kiloex-exploit-breakdown
+  - https://slowmist.medium.com/slowmist-assists-kiloex-in-recovering-all-stolen-funds-incident-recap-273d10f6d466
+  note: Rekt about $7.5M, QuillAudits $7.4M, SlowMist $8.44M. Funds were later returned after a bounty
+    (SlowMist recap); no exact recovered figure recorded.
+scope: code
+vuln_class: access_control
+tags:
+- forwarder_confusion
+- unrestricted_relay_entrypoint
+- forged_signature
+- oracle_price_set_by_attacker
+root_cause: KiloEx's trusted forwarder was built on a stock meta-transaction forwarder whose relay function
+  was left open, so anyone could submit a request through it. The keeper-gated functions behind it only
+  checked that the caller was the forwarder and never checked who the original requester was. The attacker
+  used that to set oracle prices, opened a leveraged position at a manipulated low price and closed it
+  at a high one.
+preconditions:
+- relay_function_not_restricted
+- downstream_auth_trusts_forwarder_address_only
+- oracle_prices_settable_via_keeper_path
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not KiloEx's source)
+    pragma solidity ^0.8.20;
+    contract OpenForwarder {
+        // Stock-style relay left unrestricted: anyone can make any call "from" the forwarder.
+        function execute(address to, bytes calldata data) external returns (bool ok) {
+            (ok, ) = to.call(data);
+        }
+    }
+    contract VulnerableKeeper {
+        address public trustedForwarder;
+        uint256 public price;
+        function setPrice(uint256 p) external {
+            require(msg.sender == trustedForwarder, "not forwarder");   // trusts the relay, not the originator
+            price = p;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not KiloEx's source)
+    pragma solidity ^0.8.20;
+    contract SaferKeeper {
+        address public trustedForwarder;
+        mapping(address => bool) public isKeeper;
+        uint256 public price;
+        // ERC-2771 style: the forwarder appends the verified signer to calldata.
+        function _originalSender() internal view returns (address s) {
+            require(msg.sender == trustedForwarder && msg.data.length >= 20, "bad relay");
+            assembly { s := shr(96, calldataload(sub(calldatasize(), 20))) }
+        }
+        function setPrice(uint256 p) external {
+            require(isKeeper[_originalSender()], "not keeper");   // authorise the originator
+            price = p;
+        }
+    }
+  explanation: Trusting 'msg.sender == forwarder' is only sound if the forwarder itself authenticates
+    the originator and the target then authorises that originator. Both halves are needed; override or
+    restrict inherited relay functions.
+poc: []
+fix:
+  summary: Restrict or override the inherited relay function and authorise the original requester, not
+    just the forwarder address.
+  reference_url: https://medium.com/@KiloEx/kiloex-security-incident-root-cause-analysis-post-mortem-3d899caac08c
+severity:
+  rating: high
+  rationale: About $7.4M-$8.4M taken across several chains; later returned.
+sources:
+- url: https://rekt.news/kiloex-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://medium.com/@KiloEx/kiloex-security-incident-root-cause-analysis-post-mortem-3d899caac08c
+  publisher: KiloEx
+  type: postmortem
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://slowmist.medium.com/slowmist-assists-kiloex-in-recovering-all-stolen-funds-incident-recap-273d10f6d466
+  publisher: SlowMist
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://www.quillaudits.com/blog/hack-analysis/kiloex-exploit-breakdown
+  publisher: QuillAudits
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+confidence:
+  overall: high
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Report row is V (Rekt); the extra project postmortem, SlowMist recap and QuillAudits links were
+    read via search results on 2026-10-04. Sources differ on which chains were hit and on the loss. The
+    report's description of 'forged signatures' and the project's 'execute not overridden' are two views
+    of the same open relay.
+  needs_review: true
+labels_disagree:
+- source: DefiLlama
+  label: Oracle Manipulation / Spot Price Manipulation
+  note: Impact (price set) rather than root cause (open forwarder / missing authorisation).
+- source: OAK (onchainattack.org)
+  label: Oracle-feed manipulation
+  note: OAK itself lists access-control misconfiguration as the primary mechanism.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

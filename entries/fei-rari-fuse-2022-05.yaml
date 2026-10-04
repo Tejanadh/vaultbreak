@@ -1,0 +1,121 @@
+# VB-2022-0006  Fei Rari (Fuse pools) - ETH sent before accounting update; earlier fix missed exitMarket
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0006
+slug: fei-rari-fuse-2022-05
+title: Fei Rari (Fuse pools) - ETH sent before accounting update; earlier fix missed exitMarket
+date: '2022-05-01'
+date_source: aggregator
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: Rari Capital Fuse pools (Fei)
+  category: lending
+  forked_from: Compound
+loss_usd:
+  reported_min: 80000000
+  reported_max: 80000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/fei-rari-rekt/
+scope: code
+vuln_class: reentrancy
+tags:
+- cei_violation
+- compound_fork
+- incomplete_prior_fix
+- capital_amplifier:flash_loan
+- native_eth_callback
+root_cause: In the Compound-style ETH market, native ETH was paid out with a value-carrying call before
+  the market had finished its own bookkeeping. A reentrancy fix applied earlier in the year did not cover
+  exitMarket, so a contract receiving the ETH could call back in, withdraw flash-loaned collateral and
+  still leave its debt standing.
+preconditions:
+- native_eth_market
+- external_call_before_state_update
+- prior_fix_not_applied_to_all_entrypoints
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Rari/Compound source)
+    pragma solidity ^0.8.20;
+    contract VulnerablePool {
+        mapping(address => uint256) public collateral;
+        mapping(address => uint256) public debt;
+        function withdraw(uint256 amount) external {
+            require(collateral[msg.sender] >= amount, "insufficient");
+            require(collateral[msg.sender] - amount >= debt[msg.sender] * 2, "undercollateralised");
+            (bool ok, ) = msg.sender.call{value: amount}("");   // interaction first
+            require(ok, "send failed");
+            collateral[msg.sender] -= amount;                    // effect last
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Rari/Compound source)
+    pragma solidity ^0.8.20;
+    contract SaferPool {
+        mapping(address => uint256) public collateral;
+        mapping(address => uint256) public debt;
+        function withdraw(uint256 amount) external {
+            require(collateral[msg.sender] >= amount, "insufficient");
+            require(collateral[msg.sender] - amount >= debt[msg.sender] * 2, "undercollateralised");
+            collateral[msg.sender] -= amount;                    // effect first
+            (bool ok, ) = msg.sender.call{value: amount}("");   // interaction last
+            require(ok, "send failed");
+        }
+    }
+  explanation: 'Classic checks-effects-interactions ordering, but the lesson is the incomplete fix: every
+    entry point that can pay out ETH (here exitMarket as well as withdraw paths) needs the same protection,
+    ideally a shared mutex.'
+detectors:
+- engine: slither
+  path: detectors/slither/vb_eth_send_before_write.py
+  status: validated
+  true_positive_fixture: fixtures/VB-2022-0006/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2022-0006/fixed.sol
+  notes: Flags withdraw() and exitMarket() (state write hidden behind an internal call) in the vulnerable
+    fixture; silent on the reordered and mutex-guarded versions. Slither's built-in reentrancy-eth covers
+    similar ground.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-04/Rari_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Update accounting before paying out ETH and guard every ETH-paying entry point with one shared
+    reentrancy lock.
+  reference_url: https://rekt.news/fei-rari-rekt/
+severity:
+  rating: critical
+  rationale: About $80M drained from multiple pools.
+sources:
+- url: https://rekt.news/fei-rari-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-04/Rari_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: high
+  date: medium
+  notes: Report cites 2022-05-01 (Llama/Rekt); DeFiHackLabs files it under 2022-04-30. Loss ~ $80M both.
+    Single analysis source (Rekt) plus the PoC index. Do not confuse with the 2021 Rari ETH-pool incident
+    (rekt.news/rari-capital-rekt/).
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

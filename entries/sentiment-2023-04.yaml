@@ -1,0 +1,125 @@
+# VB-2023-0013  Sentiment - read-only reentrancy via Balancer LP oracle
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2023-0013
+slug: sentiment-2023-04
+title: Sentiment - read-only reentrancy via Balancer LP oracle
+date: '2023-04-04'
+date_source: postmortem
+chains:
+- arbitrum
+language: solidity
+protocol:
+  name: Sentiment
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 1000000
+  reported_max: 1000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://hackmd.io/@sentimentxyz/SJCySo1z2
+scope: code
+vuln_class: reentrancy
+tags:
+- read_only_reentrancy
+- oracle_lp_pricing
+- capital_amplifier:flash_loan
+root_cause: Balancer pays out ETH from exitPool with a call while its internal accounting is only half
+  updated. The receiver re-entered Sentiment, whose LP-token oracle priced collateral from Balancer view
+  functions (pool balances and total supply) that had no reentrancy protection and therefore returned
+  inconsistent values. Collateral was valued at more than 16 times its true worth.
+preconditions:
+- lp_token_priced_from_external_pool_views
+- pool_pays_native_eth_with_call
+- oracle_reads_not_guarded
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Sentiment's source)
+    pragma solidity ^0.8.20;
+    interface IVault { function getPoolTokens(bytes32 id) external view returns (address[] memory, uint256[] memory, uint256); }
+    interface ILp { function totalSupply() external view returns (uint256); }
+    contract VulnerableLpOracle {
+        IVault public immutable VAULT; bytes32 public immutable POOL_ID; address public immutable LP;
+        constructor(IVault v, bytes32 id, address lp) { VAULT = v; POOL_ID = id; LP = lp; }
+        // View-only: if called from inside the pool's ETH-payout callback, balances
+        // and totalSupply are momentarily inconsistent and the price is inflated.
+        function getPrice() external view returns (uint256) {
+            (, uint256[] memory bal, ) = VAULT.getPoolTokens(POOL_ID);
+            uint256 total;
+            for (uint256 i = 0; i < bal.length; i++) total += bal[i];
+            return total * 1e18 / ILp(LP).totalSupply();
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Sentiment's source)
+    pragma solidity ^0.8.20;
+    interface IVault {
+        function getPoolTokens(bytes32 id) external view returns (address[] memory, uint256[] memory, uint256);
+        function manageUserBalance(bytes[] memory ops) external payable;
+    }
+    interface ILp { function totalSupply() external view returns (uint256); }
+    contract SaferLpOracle {
+        IVault public immutable VAULT; bytes32 public immutable POOL_ID; address public immutable LP;
+        constructor(IVault v, bytes32 id, address lp) { VAULT = v; POOL_ID = id; LP = lp; }
+        // State-mutating on purpose: a no-op Vault call reverts if the Vault's own guard is engaged.
+        function getPrice() external returns (uint256) {
+            VAULT.manageUserBalance(new bytes[](0));
+            (, uint256[] memory bal, ) = VAULT.getPoolTokens(POOL_ID);
+            uint256 total;
+            for (uint256 i = 0; i < bal.length; i++) total += bal[i];
+            return total * 1e18 / ILp(LP).totalSupply();
+        }
+    }
+  explanation: 'Fix mirrors the approach described in Sentiment''s postmortem: make the price read touch
+    the Vault so its reentrancy guard engages. Note the fixed version is not `view`, which callers must
+    accommodate.'
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-readonly-reentrancy-lp-view.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2023-0013/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2023-0013/fixed.sol
+  notes: 'Heuristic and noisy by design: flags view functions that price from getPoolTokens()/get_virtual_price()
+    unless they call ensureNotInVaultContext. Triage by hand.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-04/Sentiment_exp.sol
+  framework: foundry
+  chain: arbitrum
+  replay_status: unverified
+fix:
+  summary: State-mutating getPrice with a Balancer reentrancy-check call (no-op manageUserBalance).
+  reference_url: https://hackmd.io/@sentimentxyz/SJCySo1z2
+severity:
+  rating: high
+  rationale: Direct bad debt through collateral overpricing; the class affects many Balancer-LP integrators.
+sources:
+- url: https://hackmd.io/@sentimentxyz/SJCySo1z2
+  publisher: Sentiment
+  type: postmortem
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-04/Sentiment_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: high
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Report marks this V-2; the DeFiHackLabs sample PoC matches the postmortem's attack flow. DeFiHackLabs
+    files it under 2023-04-05, the postmortem date is used here.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

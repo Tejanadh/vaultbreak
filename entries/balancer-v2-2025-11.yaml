@@ -1,0 +1,122 @@
+# VB-2025-0033  Balancer v2 ComposableStable - exact-out upscale rounded the wrong way
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2025-0033
+slug: balancer-v2-2025-11
+title: Balancer v2 ComposableStable - exact-out upscale rounded the wrong way
+date: '2025-11-03'
+date_source: postmortem
+chains:
+- multichain
+language: solidity
+protocol:
+  name: Balancer v2 (ComposableStable pools)
+  category: dex
+  forked_from: null
+loss_usd:
+  reported_min: 128000000
+  reported_max: 128000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://medium.com/balancer-protocol/nov-3-exploit-post-mortem-51dcbeb6b020
+  note: 'Report: about $128M across 6 chains; DeFiHackLabs headline says 120M USD.'
+scope: code
+vuln_class: rounding_arithmetic
+tags:
+- rounding_direction
+- batch_swap_micro_swaps
+- rate_provider_scaling
+- low_liquidity_state
+root_cause: In the exact-amount-out swap path the pool scaled the output amount up using a rounding step
+  that rounded down, so the computed input amount came out slightly too low. With a rate provider whose
+  scaling was not 1:1, and many tiny swaps chained in a batch while the pool was in a low-liquidity state,
+  the repeated tiny undercharges added up and suppressed the pool-token price.
+preconditions:
+- exact_out_swap_path
+- non_unit_rate_provider_scaling
+- batch_swap_allows_many_micro_swaps
+- pool_in_low_liquidity_state
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Balancer's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableStablePool {
+        // scalingFactor is an 18-decimal fixed-point rate (1e18 means 1:1).
+        function _upscale(uint256 amount, uint256 scalingFactor) internal pure returns (uint256) {
+            return amount * scalingFactor / 1e18;          // floors
+        }
+        // Exact-out: the amount the trader receives is upscaled with a flooring helper,
+        // so the amountIn derived from it is slightly too small. Repeat it many times.
+        function quoteExactOut(uint256 amountOut, uint256 scaleOut, uint256 priceInPerOut) external pure returns (uint256 amountIn) {
+            uint256 scaledOut = _upscale(amountOut, scaleOut);
+            amountIn = scaledOut * priceInPerOut / 1e18;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Balancer's source)
+    pragma solidity ^0.8.20;
+    contract SaferStablePool {
+        function _upscaleUp(uint256 amount, uint256 scalingFactor) internal pure returns (uint256) {
+            return (amount * scalingFactor + 1e18 - 1) / 1e18;   // ceil, favours the pool
+        }
+        function quoteExactOut(uint256 amountOut, uint256 scaleOut, uint256 priceInPerOut) external pure returns (uint256 amountIn) {
+            uint256 scaledOut = _upscaleUp(amountOut, scaleOut);
+            amountIn = (scaledOut * priceInPerOut + 1e18 - 1) / 1e18;
+        }
+    }
+  explanation: Rounding must favour the pool at every step of both swap directions. Invariant fuzzing
+    that chains many tiny swaps with non-unit rate providers is the test that exposes it.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-11/BalancerV2_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Round up in the exact-out path, and fuzz batched micro-swaps against non-unit scaling factors.
+  reference_url: https://medium.com/balancer-protocol/nov-3-exploit-post-mortem-51dcbeb6b020
+severity:
+  rating: critical
+  rationale: About $128M across six chains.
+sources:
+- url: https://medium.com/balancer-protocol/nov-3-exploit-post-mortem-51dcbeb6b020
+  publisher: Balancer
+  type: postmortem
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://blocksec.com/blog/in-depth-analysis-the-balancer-v2-exploit
+  publisher: BlockSec
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://www.openzeppelin.com/news/understanding-the-balancer-v2-exploit
+  publisher: OpenZeppelin
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-11/BalancerV2_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: high
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Report marks this V-3 (Balancer postmortem, BlockSec, OpenZeppelin). The six chains are not named
+    in the report, so chains is 'multichain'. DeFiHackLabs notes a --via-ir flag for its PoC.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Precision loss
+  note: Matches our class.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

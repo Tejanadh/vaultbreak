@@ -1,0 +1,114 @@
+# VB-2023-0012  Euler Finance - donateToReserves() skipped the health check on the donor
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2023-0012
+slug: euler-finance-2023-03
+title: Euler Finance - donateToReserves() skipped the health check on the donor
+date: '2023-03-13'
+date_source: aggregator
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: Euler Finance
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 197000000
+  reported_max: 200000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/euler-rekt/
+  note: Rekt reports $197M; DeFiHackLabs headline says about $200M.
+scope: code
+vuln_class: donation_inflation
+tags:
+- capital_amplifier:flash_loan
+- missing_health_check
+- donate_to_reserves
+- self_liquidation
+root_cause: The donateToReserves function reduced a user's collateral without re-checking that the user's
+  account was still healthy afterwards. The attacker used that to push their own position underwater on
+  purpose, then liquidated it from a second contract at the liquidation discount, extracting more value
+  than they had put in.
+preconditions:
+- state_changing_function_without_post_condition_check
+- liquidation_discount_exploitable
+- flash_loan_liquidity_available
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Euler's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableLending {
+        mapping(address => uint256) public collateral;
+        mapping(address => uint256) public debt;
+        uint256 public reserves;
+        function isHealthy(address a) public view returns (bool) { return collateral[a] >= debt[a] * 2; }
+        // Moves collateral into reserves. Nothing re-checks the donor afterwards,
+        // so the caller can create a position that is instantly liquidatable.
+        function donateToReserves(uint256 amount) external {
+            collateral[msg.sender] -= amount;
+            reserves += amount;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Euler's source)
+    pragma solidity ^0.8.20;
+    contract SaferLending {
+        mapping(address => uint256) public collateral;
+        mapping(address => uint256) public debt;
+        uint256 public reserves;
+        function isHealthy(address a) public view returns (bool) { return collateral[a] >= debt[a] * 2; }
+        function donateToReserves(uint256 amount) external {
+            collateral[msg.sender] -= amount;
+            reserves += amount;
+            require(isHealthy(msg.sender), "donor unhealthy");   // same post-condition as withdraw/borrow
+        }
+    }
+  explanation: Every function that can reduce a user's collateral or raise their debt must end with the
+    same solvency invariant. Auditing for 'which entry points forgot the health check' finds this class.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-03/Euler_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Enforce the account-health invariant at the end of every state-changing path that lowers collateral
+    or raises debt.
+  reference_url: https://rekt.news/euler-rekt/
+severity:
+  rating: critical
+  rationale: Pool-wide drain, $197M reported.
+sources:
+- url: https://rekt.news/euler-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-03/Euler_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: high
+  date: high
+  notes: Single analysis source (Rekt) plus the PoC index; the report cross-checked root cause against
+    Omniscia in Appendix B but no URL was recorded, so it is not cited here.
+  needs_review: true
+labels_disagree:
+- source: DefiLlama
+  label: Donation Attack
+  note: 'Report''s Appendix B: root cause is a missing health check, not classic share inflation.'
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

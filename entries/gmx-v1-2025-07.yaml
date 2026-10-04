@@ -1,0 +1,123 @@
+# VB-2025-0031  GMX V1 - order executor accepted an arbitrary contract whose callback reentered and skewed short accounting
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2025-0031
+slug: gmx-v1-2025-07
+title: GMX V1 - order executor accepted an arbitrary contract whose callback reentered and skewed short
+  accounting
+date: '2025-07-09'
+date_source: aggregator
+chains:
+- arbitrum
+language: solidity
+protocol:
+  name: GMX V1
+  category: derivatives
+  forked_from: null
+loss_usd:
+  reported_min: 41000000
+  reported_max: 42000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/gmx-rekt/
+  note: Rekt $42M; DeFiHackLabs headline 41M USD.
+scope: code
+vuln_class: reentrancy
+tags:
+- callback_reentrancy
+- cross_contract_reentrancy
+- price_accounting_manipulation
+- arbitrary_contract_accepted
+root_cause: Order execution allowed the account for a decrease order to be a contract, and called back
+  into it through a position-callback hook while the protocol's global accounting was mid-update. From
+  that callback the attacker manipulated the globally tracked average short price, which fed the pool-token
+  price calculation, inflating the value of the liquidity token they then redeemed.
+preconditions:
+- order_execution_calls_user_supplied_contract
+- global_average_price_updated_after_external_call
+- pool_token_price_derived_from_that_average
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not GMX's source)
+    pragma solidity ^0.8.20;
+    interface ICallback { function onDecrease(uint256 size) external; }
+    contract VulnerablePerps {
+        uint256 public globalShortSize;
+        uint256 public globalShortAveragePrice;
+        // External call into a user-supplied contract before global accounting is finished.
+        function executeDecrease(address account, uint256 size) external {
+            if (account.code.length > 0) ICallback(account).onDecrease(size);
+            globalShortSize -= size;
+        }
+        // Reachable from inside the callback while the numbers above are stale.
+        function increaseShort(uint256 size, uint256 price) external {
+            uint256 newSize = globalShortSize + size;
+            globalShortAveragePrice = (globalShortAveragePrice * globalShortSize + price * size) / newSize;
+            globalShortSize = newSize;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not GMX's source)
+    pragma solidity ^0.8.20;
+    contract SaferPerps {
+        uint256 public globalShortSize;
+        uint256 public globalShortAveragePrice;
+        uint256 private _lock = 1;
+        modifier nonReentrant() { require(_lock == 1, "reentrant"); _lock = 2; _; _lock = 1; }
+        function executeDecrease(address account, uint256 size) external nonReentrant {
+            globalShortSize -= size;                    // finish accounting first
+            // account callbacks, if any, happen after state is consistent and under the lock
+        }
+        function increaseShort(uint256 size, uint256 price) external nonReentrant {
+            uint256 newSize = globalShortSize + size;
+            globalShortAveragePrice = (globalShortAveragePrice * globalShortSize + price * size) / newSize;
+            globalShortSize = newSize;
+        }
+    }
+  explanation: 'A callback to a user-supplied contract is an external call like any other: finish the
+    accounting first, and put one lock across every function that reads or writes the same global state.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-07/gmx_exp.sol
+  framework: foundry
+  chain: arbitrum
+  replay_status: unverified
+fix:
+  summary: Do not call back into user-supplied contracts mid-operation; use one mutex across functions
+    sharing global accounting.
+  reference_url: https://rekt.news/gmx-rekt/
+severity:
+  rating: critical
+  rationale: About $42M drained.
+sources:
+- url: https://rekt.news/gmx-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-07/gmx_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: medium
+  loss: medium
+  date: high
+  notes: Single analysis source (Rekt) plus the PoC index. DeFiHackLabs labels it 'share price manipulation'.
+    The snippet shows the shape only, not the real function names or maths.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Share price manipulation
+  note: Describes the effect on the pool-token price.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

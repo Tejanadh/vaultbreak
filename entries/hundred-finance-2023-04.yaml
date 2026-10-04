@@ -1,0 +1,123 @@
+# VB-2023-0014  Hundred Finance (Optimism) - donation to an empty market inflated the exchange rate
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2023-0014
+slug: hundred-finance-2023-04
+title: Hundred Finance (Optimism) - donation to an empty market inflated the exchange rate
+date: '2023-04-15'
+date_source: aggregator
+chains:
+- optimism
+language: solidity
+protocol:
+  name: Hundred Finance
+  category: lending
+  forked_from: null
+loss_usd:
+  reported_min: 7000000
+  reported_max: 7400000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/hundred-rekt2/
+  note: Rekt reports $7.4M; DeFiHackLabs headline says about $7M.
+scope: code
+vuln_class: donation_inflation
+tags:
+- empty_market
+- exchange_rate_donation
+- redeem_rounding
+- compound_style_exchange_rate
+root_cause: A market with almost no shares in circulation derives its exchange rate from the underlying
+  balance it holds. The attacker donated WBTC straight to the empty hWBTC market, which blew up the rate,
+  and then a rounding error in redeemUnderlying let them take out more than they were owed while burning
+  too few shares.
+preconditions:
+- market_with_near_zero_total_shares
+- exchange_rate_from_raw_token_balance
+- redeem_rounds_in_users_favour
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Hundred/Compound source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function balanceOf(address) external view returns (uint256); function transfer(address, uint256) external returns (bool); }
+    contract VulnerableMarket {
+        IERC20 public underlying;
+        uint256 public totalShares;
+        mapping(address => uint256) public shares;
+        function exchangeRate() public view returns (uint256) {
+            if (totalShares == 0) return 1e18;
+            return underlying.balanceOf(address(this)) * 1e18 / totalShares;   // anyone can donate to move this
+        }
+        function redeemUnderlying(uint256 amount) external {
+            uint256 burn = amount * 1e18 / exchangeRate();                     // rounds down: too few shares burned
+            shares[msg.sender] -= burn;
+            totalShares -= burn;
+            underlying.transfer(msg.sender, amount);
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Hundred/Compound source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function balanceOf(address) external view returns (uint256); function transfer(address, uint256) external returns (bool); }
+    contract SaferMarket {
+        IERC20 public underlying;
+        uint256 public totalShares;
+        uint256 public trackedCash;                 // internal accounting, ignores raw donations
+        mapping(address => uint256) public shares;
+        // Market creation must seed shares to a dead address so totalShares is never near zero.
+        function exchangeRate() public view returns (uint256) {
+            if (totalShares == 0) return 1e18;
+            return trackedCash * 1e18 / totalShares;
+        }
+        function redeemUnderlying(uint256 amount) external {
+            uint256 rate = exchangeRate();
+            uint256 burn = (amount * 1e18 + rate - 1) / rate;   // round UP in the protocol's favour
+            shares[msg.sender] -= burn;
+            totalShares -= burn;
+            trackedCash -= amount;
+            underlying.transfer(msg.sender, amount);
+        }
+    }
+  explanation: 'Three layers: seed new markets so they are never empty, account for cash internally instead
+    of reading raw balances, and always round share burns up / share mints down.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-04/HundredFinance_2_exp.sol
+  framework: foundry
+  chain: optimism
+  replay_status: unverified
+fix:
+  summary: Seed markets at launch, track cash internally, and round in the protocol's favour.
+  reference_url: https://rekt.news/hundred-rekt2/
+severity:
+  rating: high
+  rationale: Roughly $7M drained; the empty-market pattern repeated in several forks.
+sources:
+- url: https://rekt.news/hundred-rekt2/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-04/HundredFinance_2_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Single analysis source (Rekt) plus the PoC index. The 2022 Hundred Finance reentrancy incident
+    is a different event.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

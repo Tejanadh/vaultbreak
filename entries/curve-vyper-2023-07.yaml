@@ -1,0 +1,105 @@
+# VB-2023-0016  Curve pools (Vyper) - compiler mis-placed the reentrancy-lock storage slots
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2023-0016
+slug: curve-vyper-2023-07
+title: Curve pools (Vyper) - compiler mis-placed the reentrancy-lock storage slots
+date: '2023-07-30'
+date_source: aggregator
+chains:
+- ethereum
+language: vyper
+protocol:
+  name: Curve pools built with Vyper 0.2.15 / 0.2.16 / 0.3.0
+  category: dex
+  forked_from: null
+loss_usd:
+  reported_min: 61700000
+  reported_max: 69000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/curve-vyper-rekt/
+  note: Llama $61.7M vs Rekt $69M, per the research report; DeFiHackLabs headline says about $41M for
+    its reproduced pools.
+scope: code
+vuln_class: reentrancy
+tags:
+- compiler_bug
+- vyper_nonreentrant_lock
+- native_eth_callback
+root_cause: Affected Vyper releases (0.2.15, 0.2.16, 0.3.0) laid out the storage slot for the non-reentrant
+  lock inconsistently between add_liquidity and remove_liquidity. Contracts that looked correctly guarded
+  in source therefore did not share one lock at runtime, and a callback during the ETH payout could re-enter
+  the other function.
+preconditions:
+- compiled_with_affected_vyper_version
+- pool_pays_native_eth_with_callback
+- lock_name_shared_across_functions
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: vyper
+  illustrative: true
+  vulnerable_snippet: |
+    # ILLUSTRATIVE (our own minimal Vyper, not Curve's source)
+    # The source looks safe: both entry points use the SAME named lock.
+    # The defect was in the compiler's generated slot layout, so nothing in this
+    # text reveals it. Only the compiler version (and the emitted storage layout) does.
+    @external
+    @nonreentrant('lock')
+    def add_liquidity(amounts: uint256[2], min_mint: uint256) -> uint256:
+        return 0
+
+    @external
+    @nonreentrant('lock')
+    def remove_liquidity(amount: uint256, min_amounts: uint256[2]) -> uint256[2]:
+        return [0, 0]
+  fixed_snippet: |
+    # ILLUSTRATIVE (our own minimal Vyper, not Curve's source)
+    # Source is unchanged. The fix is operational: compile with a Vyper release that
+    # does not have the lock-slot defect, then diff the emitted storage layout so the
+    # lock occupies one slot for every guarded function.
+    @external
+    @nonreentrant('lock')
+    def add_liquidity(amounts: uint256[2], min_mint: uint256) -> uint256:
+        return 0
+  explanation: 'This is a toolchain failure, not a source pattern, so no Semgrep or Slither detector is
+    offered for it. The useful check is a build-time one: pin and audit compiler versions, and verify
+    storage layout of guard variables.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-07/Curve_exp01.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Redeploy with a compiler release that does not have the defect; add build checks on compiler
+    version and lock-slot layout.
+severity:
+  rating: critical
+  rationale: Tens of millions drained across several pools.
+sources:
+- url: https://rekt.news/curve-vyper-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-07/Curve_exp01.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Single analysis source (Rekt) plus the PoC index. The research report gives the affected Vyper
+    versions but not the fixed one, so none is named here.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

@@ -1,0 +1,135 @@
+# VB-2025-0025  Bybit - Safe delegatecall overwrote the proxy's implementation slot after signer phishing
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2025-0025
+slug: bybit-safe-2025-02
+title: Bybit - Safe delegatecall overwrote the proxy's implementation slot after signer phishing
+date: '2025-02-21'
+date_source: postmortem
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: Bybit cold wallet (Safe multisig)
+  category: wallet
+  forked_from: null
+loss_usd:
+  reported_min: 1400000000
+  reported_max: 1500000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://www.nccgroup.com/research/in-depth-technical-analysis-of-the-bybit-hack/
+  note: 'Report: about $1.4B; DeFiHackLabs headline says 1.5B.'
+scope: hybrid
+vuln_class: delegatecall
+tags:
+- storage_slot_overwrite
+- signer_phishing
+- multisig_wallet
+- proxy_implementation_swap
+root_cause: The signers were tricked into approving a Safe transaction whose operation type was delegatecall
+  and whose target was an attacker contract. That contract's code ran in the wallet's own storage context
+  and overwrote slot 0, where the proxy keeps its implementation address, swapping in a malicious implementation
+  that then moved the funds. The weakness was the signing process and interface, not a flaw in the Safe
+  code itself.
+preconditions:
+- signers_can_be_deceived_about_tx_content
+- wallet_permits_delegatecall_operation
+- proxy_keeps_implementation_in_slot_0
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Safe's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableWallet {
+        address public implementation;     // slot 0, same slot any delegatecalled code can overwrite
+        address public owner;
+        function execute(address to, uint256 value, bytes calldata data, uint8 operation) external {
+            require(msg.sender == owner, "not owner");
+            if (operation == 1) {
+                (bool ok, ) = to.delegatecall(data);   // caller-chosen target runs in OUR storage
+                require(ok, "delegatecall failed");
+            } else {
+                (bool ok, ) = to.call{value: value}(data);
+                require(ok, "call failed");
+            }
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Safe's source)
+    pragma solidity ^0.8.20;
+    contract SaferWallet {
+        address public owner;
+        mapping(address => bool) public approvedModule;
+        function execute(address to, uint256 value, bytes calldata data) external {
+            require(msg.sender == owner, "not owner");
+            (bool ok, ) = to.call{value: value}(data);   // plain calls only
+            require(ok, "call failed");
+        }
+        function execModule(address module, bytes calldata data) external {
+            require(msg.sender == owner, "not owner");
+            require(approvedModule[module], "module not approved");   // delegatecall only to vetted code
+            (bool ok, ) = module.delegatecall(data);
+            require(ok, "module call failed");
+        }
+    }
+  explanation: 'The shape: a wallet entry point where the delegatecall target is a parameter. Safe''s
+    delegatecall operation is a documented feature, so the real-world fix is process-level (verify what
+    you sign, independent transaction simulation, guards that block delegatecall), not only code-level.'
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-delegatecall-user-target.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2025-0025/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2025-0025/fixed.sol
+  notes: Flags delegatecall on an address parameter unless an allowlist require() is present. This detects
+    the code shape, not the Bybit root cause (signer phishing), and would flag Safe-style wallets by design.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-02/Bybit_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: 'Operational: transaction simulation and independent verification before signing, guards or
+    policies that block delegatecall to unvetted targets.'
+  reference_url: https://www.nccgroup.com/research/in-depth-technical-analysis-of-the-bybit-hack/
+severity:
+  rating: critical
+  rationale: About $1.4B moved out of the wallet in one transaction.
+sources:
+- url: https://www.nccgroup.com/research/in-depth-technical-analysis-of-the-bybit-hack/
+  publisher: NCC Group
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://github.com/safe-global/safe-smart-account/issues/914
+  publisher: Safe (GitHub issue)
+  type: primary
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2025-02/Bybit_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: high
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Report marks this V-2 (NCC Group plus Safe issue 914). Mostly an operational compromise; code
+    class is delegatecall with slot-0 overwrite.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Phishing attack
+  note: Operational framing of the same incident.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

@@ -1,0 +1,115 @@
+# VB-2024-0019  Hedgey Finance - user-controlled claimLockup made the contract approve USDC to the attacker
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2024-0019
+slug: hedgey-finance-2024-04
+title: Hedgey Finance - user-controlled claimLockup made the contract approve USDC to the attacker
+date: '2024-04-19'
+date_source: aggregator
+chains:
+- arbitrum
+- ethereum
+language: solidity
+protocol:
+  name: Hedgey Finance
+  category: other
+  forked_from: null
+loss_usd:
+  reported_min: 44700000
+  reported_max: 48000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/hedgey-finance-rekt/
+  note: Rekt reports $44.7M; DeFiHackLabs headline says 48M USD.
+scope: code
+vuln_class: arbitrary_external_call
+tags:
+- caller_controlled_approval_target
+- missing_input_validation
+- approval_abuse
+- capital_amplifier:flash_loan
+root_cause: createLockedCampaign accepted a claimLockup parameter straight from the caller and the contract
+  then used it when granting a token allowance. By choosing that value, the attacker had the contract
+  approve USDC to an address they controlled, and then pulled the funds out with a normal transferFrom.
+preconditions:
+- contract_holds_user_funds
+- approve_target_derived_from_caller_input
+- no_validation_of_campaign_parameters
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Hedgey's source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function approve(address spender, uint256 amount) external returns (bool); }
+    contract VulnerableCampaigns {
+        // `locker` is supplied by the caller and ends up as the spender of an
+        // allowance on tokens this contract holds.
+        function createCampaign(address token, address locker, uint256 amount) external {
+            IERC20(token).approve(locker, amount);
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Hedgey's source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function approve(address spender, uint256 amount) external returns (bool); }
+    contract SaferCampaigns {
+        address public immutable LOCKER;
+        constructor(address locker) { LOCKER = locker; }
+        function createCampaign(address token, uint256 amount) external {
+            IERC20(token).approve(LOCKER, amount);   // spender fixed at deployment
+        }
+    }
+  explanation: Allowances granted by a contract must go to fixed or allowlisted spenders, never to an
+    address that flows in from a caller-controlled struct.
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-arbitrary-transferfrom-approve.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2022-0010/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2022-0010/fixed.sol
+  notes: Approve branch of the shared rule. Real Hedgey passes the spender inside a struct field; the
+    rule only sees direct parameters, so it would miss that exact shape without data-flow tracking.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-04/HedgeyFinance_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Validate or fix the spender and other campaign parameters; never approve to caller-provided
+    addresses.
+  reference_url: https://rekt.news/hedgey-finance-rekt/
+severity:
+  rating: critical
+  rationale: Direct theft of funds held by the contract; $44.7M reported.
+sources:
+- url: https://rekt.news/hedgey-finance-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2024-04/HedgeyFinance_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: medium
+  loss: medium
+  date: high
+  notes: Report gives the mechanism at one-sentence level. Single analysis source (Rekt) plus the PoC
+    index. DeFiHackLabs labels it 'logic flaw'.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Logic flaw
+  note: Same incident; coarser label.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

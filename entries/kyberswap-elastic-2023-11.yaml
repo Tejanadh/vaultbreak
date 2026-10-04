@@ -1,0 +1,115 @@
+# VB-2023-0017  KyberSwap Elastic - tick/precision error double-counted liquidity
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2023-0017
+slug: kyberswap-elastic-2023-11
+title: KyberSwap Elastic - tick/precision error double-counted liquidity
+date: '2023-11-22'
+date_source: aggregator
+chains:
+- multichain
+language: solidity
+protocol:
+  name: KyberSwap Elastic
+  category: dex
+  forked_from: null
+loss_usd:
+  reported_min: 48000000
+  reported_max: 48000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/kyberswap-rekt/
+scope: code
+vuln_class: rounding_arithmetic
+tags:
+- capital_amplifier:flash_loan
+- tick_boundary_precision
+- double_counted_liquidity
+- concentrated_liquidity
+root_cause: The attacker used a flash loan to push the pool price into a range with no liquidity, then
+  executed carefully sized swaps so the price sat at a tick boundary under rounding. A precision error
+  in how the swap logic handled that boundary made the pool count the same liquidity twice, which let
+  the attacker withdraw far more than they had contributed.
+preconditions:
+- concentrated_liquidity_pool
+- empty_liquidity_range_reachable
+- price_to_tick_rounding_at_boundary
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code; the real swap engine is far more involved)
+    pragma solidity ^0.8.20;
+    contract VulnerableTickPool {
+        uint128 public liquidity;
+        int24 public tick;
+        mapping(int24 => int128) public liquidityNet;
+        function _cross(int24 t) internal { liquidity = uint128(int128(liquidity) + liquidityNet[t]); }
+        function _tickFromPrice(uint160 price) internal pure returns (int24) { return int24(int256(uint256(price >> 80))); }
+        function swapStep(uint160 target, int24 boundaryTick, uint160 boundaryPrice) external {
+            // Path A: the price reached the boundary, so cross it.
+            if (target >= boundaryPrice) _cross(boundaryTick);
+            // Path B: the tick is re-derived from the rounded price and may cross the same boundary again.
+            int24 newTick = _tickFromPrice(target);
+            if (newTick >= boundaryTick && tick < boundaryTick) _cross(boundaryTick);
+            tick = newTick;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code; the real swap engine is far more involved)
+    pragma solidity ^0.8.20;
+    contract SaferTickPool {
+        uint128 public liquidity;
+        int24 public tick;
+        mapping(int24 => int128) public liquidityNet;
+        function _cross(int24 t) internal { liquidity = uint128(int128(liquidity) + liquidityNet[t]); }
+        function _tickFromPrice(uint160 price) internal pure returns (int24) { return int24(int256(uint256(price >> 80))); }
+        function swapStep(uint160 target, int24 boundaryTick, uint160 boundaryPrice) external {
+            int24 newTick = _tickFromPrice(target);
+            // One authority decides crossings: compare the tick before and after, exactly once.
+            if (tick < boundaryTick && (newTick >= boundaryTick || target >= boundaryPrice)) _cross(boundaryTick);
+            tick = newTick;
+        }
+    }
+  explanation: A boundary must be crossed exactly once per swap. Two independent code paths (price comparison
+    and tick re-derivation) that can both fire are the structural bug; the fix is a single decision point
+    plus invariant tests at tick edges.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-11/KyberSwap_exp.eth.1.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Single source of truth for tick crossings and fuzz/invariant tests at tick boundaries.
+  reference_url: https://rekt.news/kyberswap-rekt/
+severity:
+  rating: critical
+  rationale: About $48M drained from concentrated-liquidity pools.
+sources:
+- url: https://rekt.news/kyberswap-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-11/KyberSwap_exp.eth.1.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: medium
+  loss: high
+  date: high
+  notes: Report only says 'multi-chain' and gives the mechanism at summary level; our snippet illustrates
+    the double-count shape, not Kyber's code. Single analysis source (Rekt) plus the PoC index.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

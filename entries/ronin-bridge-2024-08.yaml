@@ -1,0 +1,115 @@
+# VB-2024-0022  Ronin Bridge V4 upgrade - skipped initializer left vote threshold at zero
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2024-0022
+slug: ronin-bridge-2024-08
+title: Ronin Bridge V4 upgrade - skipped initializer left vote threshold at zero
+date: '2024-08-06'
+date_source: postmortem
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: Ronin Bridge
+  category: bridge
+  forked_from: null
+loss_usd:
+  reported_min: 12000000
+  reported_max: 12000000
+  recovered: 12000000
+  as_of: '2026-10-04'
+  sources:
+  - https://www.halborn.com/blog/post/explained-the-ronin-network-hack-august-2024
+  - https://www.beosin.com/resources/the-root-cause-of-ronin-bridges-abnormal-activities
+  note: About $12M; the research report says it was returned by an MEV whitehat. Recovered figure is approximate.
+scope: code
+vuln_class: proxy_upgrade_init
+tags:
+- missing_reinitializer
+- skipped_upgrade_step
+- zero_vote_threshold
+root_cause: The bridge was upgraded from version 2 to version 4 by calling only the version-4 initializer
+  and skipping the version-3 one. A total-operator-weight value that version 3 was supposed to set therefore
+  stayed at zero, which made the minimum vote weight required to approve a withdrawal zero as well.
+preconditions:
+- multi_step_initializer_chain
+- upgrade_skipped_a_version
+- threshold_derived_from_uninitialized_state
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Ronin's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableBridgeV4 {
+        uint8 public initializedVersion;
+        uint256 public totalOperatorWeight;      // set only by initializeV3
+        function initializeV3(uint256 weight) external {
+            require(initializedVersion < 3, "done");
+            totalOperatorWeight = weight;
+            initializedVersion = 3;
+        }
+        function initializeV4() external {
+            require(initializedVersion < 4, "done");   // happily runs even if V3 never did
+            initializedVersion = 4;
+        }
+        function minimumVoteWeight() public view returns (uint256) {
+            return totalOperatorWeight * 7 / 10;       // 0 when V3 was skipped
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Ronin's source)
+    pragma solidity ^0.8.20;
+    contract SaferBridgeV4 {
+        uint8 public initializedVersion;
+        uint256 public totalOperatorWeight;
+        function initializeV3(uint256 weight) external {
+            require(initializedVersion == 2, "wrong order");
+            totalOperatorWeight = weight;
+            initializedVersion = 3;
+        }
+        function initializeV4() external {
+            require(initializedVersion == 3, "V3 not initialised");   // strict sequence
+            require(totalOperatorWeight > 0, "weight unset");          // invariant at the end of init
+            initializedVersion = 4;
+        }
+        function minimumVoteWeight() public view returns (uint256) {
+            uint256 w = totalOperatorWeight * 7 / 10;
+            require(w > 0, "zero threshold");
+            return w;
+        }
+    }
+  explanation: Enforce initializer order and assert non-zero security parameters both at init time and
+    where they are consumed, so a skipped step fails loudly.
+fix:
+  summary: Enforce strict reinitializer sequencing and assert non-zero thresholds after every upgrade.
+  reference_url: https://www.halborn.com/blog/post/explained-the-ronin-network-hack-august-2024
+severity:
+  rating: high
+  rationale: About $12M exposed on a major bridge; funds were returned.
+sources:
+- url: https://www.halborn.com/blog/post/explained-the-ronin-network-hack-august-2024
+  publisher: Halborn
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+- url: https://www.beosin.com/resources/the-root-cause-of-ronin-bridges-abnormal-activities
+  publisher: Beosin
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; own summary.
+confidence:
+  overall: high
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Report marks this V-2 (Halborn and Beosin). No PoC link recorded in the report and none found
+    in the DeFiHackLabs index, so poc is omitted.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

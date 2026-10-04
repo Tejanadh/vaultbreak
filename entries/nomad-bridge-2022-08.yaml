@@ -1,0 +1,123 @@
+# VB-2022-0009  Nomad Bridge - zero value accepted as a proven root, any message processable
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0009
+slug: nomad-bridge-2022-08
+title: Nomad Bridge - zero value accepted as a proven root, any message processable
+date: '2022-08-01'
+date_source: aggregator
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: Nomad Bridge
+  category: bridge
+  forked_from: null
+loss_usd:
+  reported_min: 190000000
+  reported_max: 190000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/nomad-rekt/
+scope: code
+vuln_class: bridge_verification
+tags:
+- zero_value_trusted_root
+- bad_initialization_after_upgrade
+- copycat_exploitation
+- unproven_message_accepted
+root_cause: After a routine upgrade, the message-replica contract was initialised with the all-zero value
+  marked as an already-confirmed root. Any message that nobody had proven maps to that zero root by default,
+  so every message looked valid and process() could be called directly. The exploit transaction was trivially
+  copyable, so many unrelated accounts repeated it.
+preconditions:
+- default_mapping_value_equals_trusted_root
+- initializer_accepted_zero_root
+- process_callable_by_anyone
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Nomad's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableReplica {
+        mapping(bytes32 => uint256) public confirmAt;      // root => time it becomes valid
+        mapping(bytes32 => bytes32) public provenUnderRoot; // message hash => root (default 0x00)
+        mapping(bytes32 => bool) public processed;
+        function initialize(bytes32 committedRoot) external {
+            confirmAt[committedRoot] = 1;                   // deployed with bytes32(0)
+        }
+        function process(bytes calldata message) external {
+            bytes32 h = keccak256(message);
+            require(!processed[h], "already processed");
+            bytes32 root = provenUnderRoot[h];              // 0x00 for any unproven message
+            require(confirmAt[root] != 0 && block.timestamp >= confirmAt[root], "not proven");
+            processed[h] = true;
+            // ... release funds described by `message`
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Nomad's source)
+    pragma solidity ^0.8.20;
+    contract SaferReplica {
+        mapping(bytes32 => uint256) public confirmAt;
+        mapping(bytes32 => bytes32) public provenUnderRoot;
+        mapping(bytes32 => bool) public processed;
+        bool private initialized;
+        function initialize(bytes32 committedRoot) external {
+            require(!initialized, "already initialised");
+            require(committedRoot != bytes32(0), "zero root");
+            initialized = true;
+            confirmAt[committedRoot] = 1;
+        }
+        function process(bytes calldata message) external {
+            bytes32 h = keccak256(message);
+            require(!processed[h], "already processed");
+            bytes32 root = provenUnderRoot[h];
+            require(root != bytes32(0), "unproven message");
+            require(confirmAt[root] != 0 && block.timestamp >= confirmAt[root], "not proven");
+            processed[h] = true;
+        }
+    }
+  explanation: Sentinel defaults must never be members of the trusted set. Reject the zero root at initialisation,
+    reject unproven messages explicitly in process(), and test post-upgrade state in the upgrade runbook.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-08/NomadBridge_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Never confirm the zero root, treat missing proof as failure explicitly, and add post-upgrade
+    invariant checks.
+  reference_url: https://rekt.news/nomad-rekt/
+severity:
+  rating: critical
+  rationale: Total bridge drain, $190M reported; copyable by anyone.
+sources:
+- url: https://rekt.news/nomad-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-08/NomadBridge_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: high
+  date: medium
+  notes: DeFiHackLabs dates it 2022-08-02 and quotes ~$152M for tokens it counted; the report and Rekt
+    give 2022-08-01 and $190M. Single analysis source (Rekt) plus the PoC index.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

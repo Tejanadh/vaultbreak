@@ -1,0 +1,113 @@
+# VB-2022-0002  Qubit Finance - legacy deposit() accepted address(0) as a token, minting unbacked qXETH
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0002
+slug: qubit-finance-2022-01
+title: Qubit Finance - legacy deposit() accepted address(0) as a token, minting unbacked qXETH
+date: '2022-01-27'
+date_source: aggregator
+chains:
+- bsc
+language: solidity
+protocol:
+  name: Qubit Finance (QBridge)
+  category: bridge
+  forked_from: null
+loss_usd:
+  reported_min: 80000000
+  reported_max: 80000000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/qubit-rekt/
+scope: code
+vuln_class: bridge_verification
+tags:
+- legacy_code
+- zero_address_token
+- missing_contract_existence_check
+- unbacked_mint
+root_cause: The bridge kept an older deposit() entry point alive after a newer depositETH() was added.
+  Called with the zero address as the token, its token pull went to an address with no code, and that
+  pull did not revert, so the bridge still emitted a deposit event. The BSC side then minted qXETH although
+  no ETH had been locked on Ethereum.
+preconditions:
+- legacy_entrypoint_still_callable
+- token_pull_does_not_check_for_code
+- mint_trusts_deposit_event
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Qubit's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableBridge {
+        event Deposit(address indexed token, address indexed from, uint256 amount);
+        function _pull(address token, address from, uint256 amount) internal {
+            // A low-level call to an address with no code returns ok == true.
+            (bool ok, ) = token.call(abi.encodeWithSignature(
+                "transferFrom(address,address,uint256)", from, address(this), amount));
+            require(ok, "pull failed");
+        }
+        // Legacy entry point left in place; token == address(0) sails through.
+        function deposit(address token, uint256 amount) external {
+            _pull(token, msg.sender, amount);
+            emit Deposit(token, msg.sender, amount);
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Qubit's source)
+    pragma solidity ^0.8.20;
+    contract SaferBridge {
+        mapping(address => bool) public supportedToken;
+        event Deposit(address indexed token, address indexed from, uint256 amount);
+        function deposit(address token, uint256 amount) external {
+            require(supportedToken[token] && token.code.length > 0, "unsupported token");
+            (bool ok, bytes memory ret) = token.call(abi.encodeWithSignature(
+                "transferFrom(address,address,uint256)", msg.sender, address(this), amount));
+            require(ok && (ret.length == 0 || abi.decode(ret, (bool))), "pull failed");
+            emit Deposit(token, msg.sender, amount);
+        }
+    }
+  explanation: 'Two gaps stack: no check that the token is a real, supported contract, and a token pull
+    whose success is never confirmed by a balance change. Retire superseded entry points rather than leaving
+    them live.'
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-01/Qubit_exp.sol
+  framework: foundry
+  chain: bsc
+  replay_status: unverified
+fix:
+  summary: Remove or gate the legacy entry point, allowlist tokens, require contract code, and reconcile
+    deposits against actual balance changes before minting.
+  reference_url: https://rekt.news/qubit-rekt/
+severity:
+  rating: critical
+  rationale: Unbacked mint of a bridged asset; $80M reported.
+sources:
+- url: https://rekt.news/qubit-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-01/Qubit_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: high
+  date: medium
+  notes: Report lists date as 2022-01-27/28; DeFiHackLabs files it under 2022-01-28. Single analysis source
+    for root cause (Rekt) plus the PoC index.
+  needs_review: true
+labels_disagree: []
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

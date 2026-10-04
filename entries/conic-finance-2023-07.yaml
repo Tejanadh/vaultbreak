@@ -1,0 +1,118 @@
+# VB-2023-0015  Conic Finance - new Curve LP oracle reintroduced read-only reentrancy
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2023-0015
+slug: conic-finance-2023-07
+title: Conic Finance - new Curve LP oracle reintroduced read-only reentrancy
+date: '2023-07-21'
+date_source: aggregator
+chains:
+- ethereum
+language: solidity
+protocol:
+  name: Conic Finance
+  category: yield
+  forked_from: null
+loss_usd:
+  reported_min: 3300000
+  reported_max: 4200000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/conic-finance-rekt/
+  note: Llama $3.3M vs Rekt $4.2M (two pools), per the research report.
+scope: code
+vuln_class: reentrancy
+tags:
+- read_only_reentrancy
+- oracle_lp_pricing
+- reintroduced_known_bug
+- eth_weth_address_mixup
+root_cause: A newly written Curve LP-token oracle reintroduced a read-only reentrancy that was already
+  a known hazard for Curve pools paying out ETH. A guard was meant to block it, but it was bypassed because
+  ETH and WETH are identified by different addresses and the check only recognised one of them.
+preconditions:
+- lp_price_read_from_curve_view
+- pool_pays_native_eth
+- guard_keyed_on_wrong_asset_address
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Conic's source)
+    pragma solidity ^0.8.20;
+    contract VulnerableGuardCheck {
+        address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        // Decides whether a pool needs the reentrancy check. Curve ETH pools list
+        // the 0xEeee... sentinel, not WETH, so the check is silently skipped.
+        function needsReentrancyCheck(address[] memory coins) public pure returns (bool) {
+            for (uint256 i = 0; i < coins.length; i++) {
+                if (coins[i] == WETH) return true;
+            }
+            return false;
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Conic's source)
+    pragma solidity ^0.8.20;
+    contract SaferGuardCheck {
+        address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        address public constant ETH_SENTINEL = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+        function needsReentrancyCheck(address[] memory coins) public pure returns (bool) {
+            for (uint256 i = 0; i < coins.length; i++) {
+                if (coins[i] == WETH || coins[i] == ETH_SENTINEL) return true;
+            }
+            return false;
+        }
+    }
+  explanation: The mismatch is illustrated with a minimal guard-selection helper; Conic's real guard logic
+    differs. Treat every alias of the native asset (zero address, sentinel, WETH) when deciding whether
+    a pool can call back.
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-readonly-reentrancy-lp-view.yaml
+  status: draft
+  true_positive_fixture: fixtures/VB-2023-0013/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2023-0013/fixed.sol
+  notes: Shared with Sentiment; kept as draft because it does not flag this entry's own snippet. Catches
+    the view-priced-LP shape only; it does NOT detect the ETH/WETH guard mix-up, which needs manual review.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-07/Conic_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Guard LP pricing against pool callbacks and cover every alias of the native asset.
+  reference_url: https://rekt.news/conic-finance-rekt/
+severity:
+  rating: high
+  rationale: Several million drained; repeat of a documented class.
+sources:
+- url: https://rekt.news/conic-finance-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2023-07/Conic_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: high
+  loss: medium
+  date: high
+  notes: Single analysis source (Rekt) plus the PoC index. Loss differs between sources.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Read-only reentrancy && misconfiguration
+  note: Consistent with our class; adds the misconfiguration angle.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null

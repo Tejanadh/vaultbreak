@@ -1,0 +1,116 @@
+# VB-2022-0010  Transit Swap - claimTokens() pulled tokens using caller-supplied token and parameters
+# Draft: needs human review before it counts as reviewed (see confidence.needs_review).
+id: VB-2022-0010
+slug: transit-swap-2022-10
+title: Transit Swap - claimTokens() pulled tokens using caller-supplied token and parameters
+date: '2022-10-02'
+date_source: aggregator
+chains:
+- ethereum
+- bsc
+language: solidity
+protocol:
+  name: Transit Swap
+  category: dex
+  forked_from: null
+loss_usd:
+  reported_min: 21000000
+  reported_max: 28900000
+  recovered: null
+  as_of: '2026-10-04'
+  sources:
+  - https://rekt.news/transit-swap-rekt/
+  note: Rekt reports about $21M; DefiLlama $28.9M (per the research report).
+scope: code
+vuln_class: arbitrary_external_call
+tags:
+- caller_controlled_token
+- caller_controlled_calldata
+- approval_abuse
+- unverified_contracts
+root_cause: The router's claimTokens path issued a transferFrom whose token address and parameters came
+  from the caller instead of being fixed by the protocol. Because users had approved the router, an attacker
+  could point it at any approving victim and move their tokens. The contracts were unverified, so the
+  analysis relied on decompilation by SlowMist (via Rekt).
+preconditions:
+- users_hold_standing_approvals_to_router
+- token_and_source_address_are_call_arguments
+- unverified_source_code
+affected_contracts: []
+attack_txs: []
+code_pattern:
+  language: solidity
+  illustrative: true
+  vulnerable_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Transit Swap's source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function transferFrom(address from, address to, uint256 amount) external returns (bool); }
+    contract VulnerableRouter {
+        // `token`, `from` and `to` all come from the caller. Anyone who approved
+        // this router can have tokens moved to an address of the caller's choice.
+        function claimTokens(address token, address from, address to, uint256 amount) external {
+            IERC20(token).transferFrom(from, to, amount);
+        }
+    }
+  fixed_snippet: |
+    // ILLUSTRATIVE (our own minimal code, not Transit Swap's source)
+    pragma solidity ^0.8.20;
+    interface IERC20 { function transferFrom(address from, address to, uint256 amount) external returns (bool); }
+    contract SaferRouter {
+        mapping(address => bool) public allowedToken;
+        // Tokens only ever come from the caller, and the token must be allowlisted.
+        function deposit(address token, address to, uint256 amount) external {
+            require(allowedToken[token], "token not allowed");
+            IERC20(token).transferFrom(msg.sender, to, amount);
+        }
+    }
+  explanation: Never let a caller choose whose funds are pulled. The pull source is msg.sender, the token
+    is allowlisted, and external calls built from arguments are avoided or constrained.
+detectors:
+- engine: semgrep
+  path: detectors/semgrep/vb-arbitrary-transferfrom-approve.yaml
+  status: validated
+  true_positive_fixture: fixtures/VB-2022-0010/vulnerable.sol
+  false_positive_fixture: fixtures/VB-2022-0010/fixed.sol
+  notes: Fires on transferFrom(<param>, ...) and approve(<param>, ...). Syntactic; does not model access-control
+    modifiers, so an onlyOwner function would still be flagged.
+poc:
+- kind: external
+  url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-10/TransitSwap_exp.sol
+  framework: foundry
+  chain: ethereum
+  replay_status: unverified
+fix:
+  summary: Pull only from msg.sender, allowlist tokens, and never build the transferFrom source from calldata.
+  reference_url: https://rekt.news/transit-swap-rekt/
+severity:
+  rating: critical
+  rationale: Victim funds moved directly; $21M to $28.9M across chains.
+sources:
+- url: https://rekt.news/transit-swap-rekt/
+  publisher: Rekt
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; Rekt content is all rights reserved, nothing copied.
+- url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-10/TransitSwap_exp.sol
+  publisher: DeFiHackLabs
+  type: analysis
+  accessed: '2026-10-04'
+  license_note: Linked only; repo is Apache-2.0 but sampled PoC files carry SPDX UNLICENSED, so not re-hosted.
+confidence:
+  overall: medium
+  root_cause: medium
+  loss: medium
+  date: medium
+  notes: Loss disagrees between sources. Root cause rests on SlowMist decompilation reported via Rekt
+    because the contracts were unverified. Single analysis source plus the PoC index.
+  needs_review: true
+labels_disagree:
+- source: DeFiHackLabs
+  label: Incorrect owner address validation
+  note: Different wording for the same missing-validation theme.
+provenance:
+  author: teja
+  llm_assisted: true
+  human_reviewed_by: null
+  reviewed_on: null
