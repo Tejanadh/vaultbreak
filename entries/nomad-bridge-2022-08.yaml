@@ -103,8 +103,10 @@ poc:
 - kind: external
   url: https://github.com/SunWeb3Sec/DeFiHackLabs/blob/main/src/test/2022-08/NomadBridge_exp.sol
   framework: foundry
+  fork_block: 15259100
   chain: ethereum
-  replay_status: unverified
+  replay_status: verified
+  last_replayed: '2026-10-04'
 fix:
   summary: Never confirm the zero root, treat missing proof as failure explicitly, and add post-upgrade
     invariant checks.
@@ -143,6 +145,13 @@ confidence:
     also names 0x53fd92771d2084a9bf39a6477015ef53b7f116c79d98a21be723d06d79024cad. That hash
     exists, block 15002481, 2022-06-21T13:15:16Z, to the Replica logic address. It is not an
     August attack transaction and is not stored in attack_txs. Loss figures are unchanged.
+    On 2026-10-04, forge 1.7.1 test --fork-url https://eth.drpc.org --fork-block-number
+    15259100 ran replay/nomad/test/NomadReplay.t.sol. The test calls vm.transact on the
+    process hash and checks the WBTC balance delta of 10000000000 raw units. It does not
+    contain the DeFiHackLabs function body. The suite reported 1 passed, 0 failed.
+    replay_status verified refers to that test. eth_getCode at block 15259100 also
+    succeeded on https://rpc.mevblocker.io. https://1rpc.io/eth and https://rpc.flashbots.net
+    reported historical state unavailable.
   needs_review: true
 labels_disagree: []
 provenance:

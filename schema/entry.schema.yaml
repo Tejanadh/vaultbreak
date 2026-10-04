@@ -120,7 +120,7 @@ properties:
         framework: {enum: [foundry, anchor, solana-poc-framework]}
         fork_block: {type: [integer, "null"]}
         chain: {type: string}
-        replay_status: {enum: [unverified, passes, fails]}
+        replay_status: {enum: [unverified, passes, fails, verified], description: "verified means this repo's fork test passed. passes is the older word and is not used as a synonym."}
         last_replayed: {$ref: "#/$defs/nullable_isodate"}
   fix:
     type: object

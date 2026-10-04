@@ -92,7 +92,11 @@ Receipts were read with `eth_getTransactionByHash` and `eth_getTransactionReceip
 
 ## Known data gaps
 
-* Radiant (VB-2024-0018) still has the only Arbitrum node check. Euler, Nomad, Bybit, and Ronin now have Ethereum hashes from the calls above. The other 16 entries still have empty `affected_contracts` and `attack_txs`. No Foundry mainnet replay (`replay_status: unverified` everywhere, including Radiant).
+* Radiant (VB-2024-0018) still has the only Arbitrum node check. Euler, Nomad, Bybit, and Ronin now have Ethereum hashes from the calls above. The other 16 EVM entries still have empty `affected_contracts` and `attack_txs`. Solend (VB-2022-0012) also has empty lists, for the reason in the Solana section.
+
+## Fork replay (step 3, 2026-10-04)
+
+`replay/nomad/test/NomadReplay.t.sol` passed on 2026-10-04: `forge 1.7.1 test --fork-url https://eth.drpc.org --fork-block-number 15259100`. One test, `test_process_tx_moves_wbtc`, passed. It replays process hash `0xa5fe9d04…5460` with `vm.transact` and expects the receipt's WBTC delta of 10000000000 raw units. The DeFiHackLabs file is linked from the test and from the Nomad entry. Its body is not in this repo. `replay_status: verified` on VB-2022-0009 means that test passed. Every other entry is still `unverified`. `https://eth.drpc.org` and `https://rpc.mevblocker.io` returned code at block 15259100. `https://1rpc.io/eth` and `https://rpc.flashbots.net` said historical state was unavailable. Euler was not replayed.
 * `python scripts/vb.py` queries `build/vaultbreak.sqlite` (`list`, `show`, `search`).
 * Dates differ by about a day between DeFiHackLabs and other sources for several incidents; the
   entry's `confidence.notes` says so. Nomad's stored blocks are 2022-08-01 UTC.

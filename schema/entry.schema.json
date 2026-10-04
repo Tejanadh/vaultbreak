@@ -397,8 +397,10 @@
             "enum": [
               "unverified",
               "passes",
-              "fails"
-            ]
+              "fails",
+              "verified"
+            ],
+            "description": "verified means this repo's fork test passed. passes is the older word and is not used as a synonym."
           },
           "last_replayed": {
             "$ref": "#/$defs/nullable_isodate"
