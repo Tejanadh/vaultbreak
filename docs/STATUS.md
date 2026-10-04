@@ -90,22 +90,23 @@ Receipts were read with `eth_getTransactionByHash` and `eth_getTransactionReceip
 | VB-2025-0025 Bybit | masterCopy `0x46deef0f…7882` block 21895238, 2025-02-21T14:13:35Z; four later hashes in block 21895251, 2025-02-21T14:16:11Z | Safe, trojan input address, backdoor (slot 0 at end of 21895238), previous masterCopy (slot 0 at end of 21895237). The ETH-labeled hash has msg.value 0 and no logs. Token symbols on the later logs were not read. |
 | VB-2024-0022 Ronin | `0x26195700…a6cb` block 20468679, 2024-08-06T09:37:23Z; `0xbce5b854…60ad8` block 20468848, 2024-08-06T10:11:47Z | Bridge is a log on both. The second receipt's USDC Transfer is 1,998,046.875 USDC. Beosin audit-transaction hashes were not stored. |
 
-## Known data gaps
-
-* Radiant (VB-2024-0018) still has the only Arbitrum node check. Euler, Nomad, Bybit, and Ronin now have Ethereum hashes from the calls above. The other 16 EVM entries still have empty `affected_contracts` and `attack_txs`. Solend (VB-2022-0012) also has empty lists, for the reason in the Solana section.
-
 ## Fork replay (step 3, 2026-10-04)
 
-`replay/nomad/test/NomadReplay.t.sol` passed on 2026-10-04: `forge 1.7.1 test --fork-url https://eth.drpc.org --fork-block-number 15259100`. One test, `test_process_tx_moves_wbtc`, passed. It replays process hash `0xa5fe9d04…5460` with `vm.transact` and expects the receipt's WBTC delta of 10000000000 raw units. The DeFiHackLabs file is linked from the test and from the Nomad entry. Its body is not in this repo. `replay_status: verified` on VB-2022-0009 means that test passed. Every other entry is still `unverified`. `https://eth.drpc.org` and `https://rpc.mevblocker.io` returned code at block 15259100. `https://1rpc.io/eth` and `https://rpc.flashbots.net` said historical state was unavailable. Euler was not replayed.
+`replay/nomad/test/NomadReplay.t.sol` passed on 2026-10-04: `forge 1.7.1 test --fork-url https://eth.drpc.org --fork-block-number 15259100`. One test, `test_process_tx_moves_wbtc`, passed. It replays process hash `0xa5fe9d04…5460` with `vm.transact` and expects the receipt's WBTC delta of 10000000000 raw units. The DeFiHackLabs file is linked from the test and from the Nomad entry. Its body is not in this repo. `replay_status: verified` on VB-2022-0009 means that test passed. Every other entry is still `unverified`. `https://eth.drpc.org` and `https://rpc.mevblocker.io` returned code at block 15259100. `https://1rpc.io/eth` and `https://rpc.flashbots.net` said historical state was unavailable. Euler was not replayed. `scripts/check_all.sh` does not run this Foundry test.
+
+## Known data gaps
+
+* Radiant (VB-2024-0018) is the only Arbitrum node check. Euler, Nomad, Bybit, and Ronin have Ethereum hashes from the calls above. Wormhole, Cashio, Crema, Nirvana, and Mango have Solana signatures from `getTransaction`. Seventeen entries still have empty `affected_contracts` and `attack_txs`: the 16 older EVM files, plus Solend.
 * `python scripts/vb.py` queries `build/vaultbreak.sqlite` (`list`, `show`, `search`).
 * Dates differ by about a day between DeFiHackLabs and other sources for several incidents; the
   entry's `confidence.notes` says so. Nomad's stored blocks are 2022-08-01 UTC.
-* `date_source: tx` is set on Euler, Nomad, Bybit, and Ronin, because those block timestamps fall on the entry date. Radiant's `date_source` was left as it was.
+* `date_source: tx` is set where a confirmed block timestamp falls on the entry date: Euler, Nomad, Bybit, Ronin, Wormhole, Cashio, Crema, Nirvana, and Mango. Radiant's `date_source` was left as it was. Solend stays `postmortem` because no November transaction was confirmed.
 * OAK taxonomy mapping not done (not verified).
+* All 27 entries still have `needs_review: true`.
 
 ## Next steps (suggested)
 
-1. Human review of all 21 entries (set `needs_review: false`, fill `human_reviewed_by`).
-2. Explorer-verified addresses and tx hashes for the 16 entries that are still empty. Radiant, Euler, Nomad, Bybit, and Ronin are the pattern: read the node, do not copy a hash that was not fetched.
-3. More detectors where a reliable shape exists (e.g. zero-value root in initialisers).
-4. Foundry replay harness for ~10 entries; Pagefind for full-text search.
+1. Human review of all 27 entries (set `needs_review: false`, fill `human_reviewed_by`).
+2. Addresses and tx hashes for the 17 entries that are still empty. Read the node. Do not copy a hash that was not fetched.
+3. More detectors where a reliable shape exists (e.g. zero-value root in initialisers). A confirmed incident for `pda_seed_collision` or `arbitrary_cpi` if one is found.
+4. Foundry replay for more than Nomad. Pagefind for full-text search.
