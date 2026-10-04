@@ -1,9 +1,6 @@
-# Status and coverage (2026-10-04)
+# Status (2026-10-04)
 
-Derived from an internal research report (`vaultbreak-research.md`, not included in this repo).
-Only incidents that report marked verified (V, V-2, V-3) and that are EVM/Solidity-or-Vyper
-were used. Source links were HTTP-checked on 2026-10-04 (two Medium links return 403 to bots
-and are unverified by script).
+I only kept incidents I had already marked verified, and only EVM. The notes file those marks came from is not in this repo. I HTTP-checked the source links on this date. Two Medium posts return 403 to the checker, so those two links are still unchecked.
 
 ## Included (21)
 

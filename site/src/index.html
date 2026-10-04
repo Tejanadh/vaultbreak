@@ -1,11 +1,10 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vaultbreak - machine-checkable smart-contract exploit patterns</title><link rel="stylesheet" href="style.css"></head>
+<title>Vaultbreak</title><link rel="stylesheet" href="style.css"></head>
 <body><header><a class="brand" href="index.html">Vaultbreak</a><nav><a href="index.html">Entries</a> <a href="taxonomy.html">Taxonomy</a></nav></header>
 <main>
-<h1>Real exploit patterns, as checkable records</h1>
-<p class="lead">Each entry: our own root-cause summary, a normalised class, an illustrative code shape, source links and a confidence rating.
-Some entries ship a Semgrep/Slither detector with passing and failing fixtures. This is an early draft dataset; entries are marked until a human has reviewed them.</p>
+<h1>Exploit notes I can check</h1>
+<p class="lead">One incident per file. My summary, a class, a small snippet I wrote, and the links. A few have a detector that has to hit the bad fixture and miss the fix. I have not reviewed these yet.</p>
 <form id="filters" onsubmit="return false">
   <label>Search <input id="text" type="search" placeholder="e.g. rounding, oracle, delegatecall"></label>
   <label>Class <select id="vuln_class"></select></label>
@@ -20,5 +19,5 @@ Some entries ship a Semgrep/Slither detector with passing and failing fixtures. 
 <ul id="results" class="cards"></ul>
 <noscript><p>Search needs JavaScript. Entry pages are plain HTML under <code>entries/</code>.</p></noscript>
 </main>
-<footer>Draft dataset. Summaries and code are our own; incident facts link to their sources. Data CC-BY-4.0, code MIT.</footer>
+<footer>Draft. Summaries and snippets are mine. Facts point at the source. Data CC-BY-4.0, code MIT.</footer>
 <script src="filter.js"></script><script src="app.js"></script></body></html>
