@@ -1,0 +1,18 @@
+# Exact expectations for each detector on its fixtures. CI fails if either side flips.
+# tp = findings expected on the vulnerable fixture; fp = findings allowed on the fixed fixture (always 0).
+detectors/semgrep/vb-delegatecall-user-target.yaml:
+  fixture_dir: fixtures/VB-2025-0025
+  tp: 2
+  fp: 0
+detectors/semgrep/vb-arbitrary-transferfrom-approve.yaml:
+  fixture_dir: fixtures/VB-2022-0010
+  tp: 2
+  fp: 0
+detectors/semgrep/vb-readonly-reentrancy-lp-view.yaml:
+  fixture_dir: fixtures/VB-2023-0013
+  tp: 2
+  fp: 0
+detectors/slither/vb_eth_send_before_write.py:
+  fixture_dir: fixtures/VB-2022-0006
+  tp: 2          # withdraw, exitMarket
+  fp: 0

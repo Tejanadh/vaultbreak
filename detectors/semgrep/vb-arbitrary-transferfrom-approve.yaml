@@ -1,0 +1,43 @@
+rules:
+  - id: vb-arbitrary-transferfrom-approve
+    languages: [solidity]
+    severity: ERROR
+    message: >-
+      transferFrom() source or approve() spender is a function parameter, so the
+      caller decides whose tokens move or who gets an allowance (Vaultbreak class:
+      arbitrary external call / approval abuse).
+    metadata:
+      vaultbreak_entries: [VB-2022-0010, VB-2024-0019]
+      vaultbreak_class: arbitrary_external_call
+      note: Heuristic, syntactic. Own rule. Does not model access control modifiers.
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  function $F(..., address $FROM, ...) {
+                    ...
+                  }
+              - pattern-either:
+                  - pattern: $TOK.transferFrom($FROM, ...)
+                  - pattern: $TOK.safeTransferFrom($FROM, ...)
+              - pattern-not-inside: |
+                  function $F(..., address $FROM, ...) {
+                    ...
+                    require($FROM == msg.sender, ...);
+                    ...
+                  }
+          - patterns:
+              - pattern-inside: |
+                  function $F(..., address $SPENDER, ...) {
+                    ...
+                  }
+              - pattern-either:
+                  - pattern: $TOK.approve($SPENDER, ...)
+                  - pattern: $TOK.safeApprove($SPENDER, ...)
+                  - pattern: $TOK.forceApprove($SPENDER, ...)
+              - pattern-not-inside: |
+                  function $F(..., address $SPENDER, ...) {
+                    ...
+                    require($ALLOW[$SPENDER], ...);
+                    ...
+                  }

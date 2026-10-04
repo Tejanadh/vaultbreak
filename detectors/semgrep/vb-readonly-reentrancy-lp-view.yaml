@@ -1,0 +1,44 @@
+rules:
+  - id: vb-readonly-reentrancy-lp-view
+    languages: [solidity]
+    severity: WARNING
+    message: >-
+      View function prices from an external pool's view state (getPoolTokens /
+      get_virtual_price) with no reentrancy-context check. If the pool can call
+      out while its accounting is half-updated, this read can be wrong
+      (Vaultbreak class: reentrancy, tag read_only_reentrancy).
+    metadata:
+      vaultbreak_entries: [VB-2023-0013, VB-2023-0015]
+      vaultbreak_class: reentrancy
+      note: >-
+        Heuristic and deliberately noisy: it flags the *shape* (view-typed pricing
+        read of external pool state). Triage manually. Own rule.
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              function $F(...) external view returns (...) {
+                ...
+              }
+          - pattern-inside: |
+              function $F(...) public view returns (...) {
+                ...
+              }
+          - pattern-inside: |
+              function $F(...) internal view returns (...) {
+                ...
+              }
+      - pattern-either:
+          - pattern: $POOL.getPoolTokens(...)
+          - pattern: $POOL.get_virtual_price()
+      - pattern-not-inside: |
+          function $F(...) external view returns (...) {
+            ...
+            $LIB.ensureNotInVaultContext(...);
+            ...
+          }
+      - pattern-not-inside: |
+          function $F(...) public view returns (...) {
+            ...
+            $LIB.ensureNotInVaultContext(...);
+            ...
+          }

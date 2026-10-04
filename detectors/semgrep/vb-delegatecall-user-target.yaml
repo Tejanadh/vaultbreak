@@ -1,0 +1,24 @@
+rules:
+  - id: vb-delegatecall-user-target
+    languages: [solidity]
+    severity: ERROR
+    message: >-
+      delegatecall target is a function parameter and no allowlist check was
+      found in the function. Whoever controls the argument runs arbitrary code
+      against this contract's storage (Vaultbreak class: delegatecall).
+    metadata:
+      vaultbreak_entries: [VB-2025-0025]
+      vaultbreak_class: delegatecall
+      note: Heuristic, syntactic. Own rule, written from the exploit class, not copied.
+    patterns:
+      - pattern-inside: |
+          function $F(..., address $T, ...) {
+            ...
+          }
+      - pattern: $T.delegatecall(...)
+      - pattern-not-inside: |
+          function $F(..., address $T, ...) {
+            ...
+            require($ALLOW[$T], ...);
+            ...
+          }
