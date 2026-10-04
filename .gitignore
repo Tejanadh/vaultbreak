@@ -1,0 +1,8 @@
+.venv/
+build/
+__pycache__/
+*.pyc
+node_modules/
+evidence/
+inbox/
+.DS_Store

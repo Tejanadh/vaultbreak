@@ -1,0 +1,6 @@
+# Versions the project was developed and tested against (2026-10-04).
+PyYAML==6.0.3
+jsonschema==4.25.1
+semgrep==1.179.0
+slither-analyzer==0.11.6
+solc-select==1.2.0
