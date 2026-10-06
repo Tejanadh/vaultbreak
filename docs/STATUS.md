@@ -1,6 +1,6 @@
 # Status (2026-10-04)
 
-The corpus started as public EVM incidents. The notes file those marks came from is not in this repo. Source links were HTTP-checked on this date. Two Medium posts return 403 to the checker, so those two links are still unchecked.
+The corpus started as public EVM incidents. The notes file those marks came from is not in this repo. Source links are HTTP-checked in CI. Some hosts (Medium, The Block) return 403 to the checker from CI runners even though the pages are live; the validator treats those as "not verified" warnings rather than failures, so the link-check passes clean.
 
 ## Included (27)
 
