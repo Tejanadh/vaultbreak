@@ -118,6 +118,23 @@ def check_entry(path, e, validator, classes, tags, chains, today):
     return errs, warns
 
 
+# Hosts that answer bot traffic (CI runners included) with 403/429 while the page is live
+# in a browser. A 403/429 from one of these is a warning ("not verified"), not an error.
+BOT_BLOCK_HOSTS = {
+    "medium.com": "Medium blocks bots",
+    "blog.save.finance": "Medium-hosted; Medium blocks bots",
+    "theblock.co": "The Block blocks bots",
+}
+
+
+def bot_block_reason(url):
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    for domain, why in BOT_BLOCK_HOSTS.items():
+        if host == domain or host.endswith("." + domain):
+            return why
+    return None
+
+
 def check_link(url, timeout=20):
     hdr = {"User-Agent": "Mozilla/5.0 (vaultbreak link check)"}
     for method in ("HEAD", "GET"):
@@ -176,8 +193,9 @@ def main(argv=None):
                 st = check_link(s["url"])
                 if st == 200:
                     continue
-                if st in (403, 429) and urllib.parse.urlparse(s["url"]).hostname.endswith("medium.com"):
-                    warns.append(f"link check {st} (Medium blocks bots; not verified): {s['url']}")
+                why = bot_block_reason(s["url"])
+                if st in (403, 429) and why:
+                    warns.append(f"link check {st} ({why}; not verified): {s['url']}")
                 else:
                     errs.append(f"link check {st}: {s['url']}")
         total_err += len(errs)

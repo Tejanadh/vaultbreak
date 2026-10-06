@@ -75,20 +75,22 @@ sources:
   type: analysis
   accessed: '2026-10-04'
   license_note: Linked only. Own summary. This page does not print a transaction signature.
-- url: https://www.immunebytes.com/blog/solends-isolated-pools-exploitation-nov-2-2022-detailed-analysis/
-  publisher: ImmuneBytes
-  type: analysis
-  accessed: '2026-10-04'
+- url: https://blog.save.finance/usdh-price-manipulation-impact-on-isolated-pools-4f79ff6af2ba
+  publisher: Save (formerly Solend)
+  type: postmortem
+  accessed: '2026-10-06'
   license_note: >-
-    Linked only. The page prints two signatures. getTransaction dates both to
-    2022-10-28, so they are not stored as the 2 November attack.
+    Linked only. Own summary. Project postmortem dated 29 November 2022. It links the
+    two signatures named in confidence.notes under the failed 28 October attempt.
+    Replaces an ImmuneBytes page that returned 404 on 2026-10-06.
 confidence:
   overall: medium
   root_cause: high
   loss: medium
   date: high
   notes: >-
-    No November signature was confirmed. ImmuneBytes prints
+    No November signature was confirmed. The Solend postmortem links, under its
+    28 October attempt, the same two signatures a now-removed ImmuneBytes page printed:
     3EBSM7nD5YFf28swj7Tm5bCERymzN8twfoirkEZX2sN2FCuDMzyQ2zYLDX3DiZ6ScUak3XCFwHaAEUvqDHZZQ7MM
     and 5HLQwnpm2jLP4FJwin7Ae59ayXgJ9U41H5JushgkY1kQEe5q9Hnk5ksNPt6f7YpayhWp4xTqya2WKjYaUghbnhTV.
     On 2026-10-04, getTransaction on https://api.mainnet-beta.solana.com returned both at slot

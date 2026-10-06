@@ -18,9 +18,9 @@ loss_usd:
   recovered: null
   as_of: '2026-10-04'
   sources:
-  - https://www.immunebytes.com/blog/wormhole-bridge-hack-feb-2-2022-detailed-hack-analysis/
+  - https://www.certik.com/blog/wormhole-bridge-exploit-incident-analysis
   - https://arstechnica.com/information-technology/2022/02/how-323-million-in-crypto-was-stolen-from-a-blockchain-bridge-called-wormhole/
-  note: ImmuneBytes says about $320 million and 120,000 Wormhole ETH. Ars Technica says about $323 million and 120,000 ETH minted on Solana. The dollar figures are theirs, not a conversion done here.
+  note: CertiK says roughly 120,000 Wormhole ETH worth over $320 million. Ars Technica says about $323 million and 120,000 ETH minted on Solana. The dollar figures are theirs, not a conversion done here.
 scope: code
 vuln_class: unchecked_sysvar
 tags:
@@ -79,7 +79,7 @@ detectors:
     a confirmed missing-signer transaction was added, so the fixtures live under this id.
 poc:
 - kind: external
-  url: https://www.immunebytes.com/blog/wormhole-bridge-hack-feb-2-2022-detailed-hack-analysis/
+  url: https://www.certik.com/blog/wormhole-bridge-exploit-incident-analysis
   framework: solana-poc-framework
   chain: solana
   replay_status: unverified
@@ -90,11 +90,13 @@ severity:
   rating: critical
   rationale: Unbacked wrapped ETH minted on the Solana side of the bridge. The cited pages put the dollars between about $320 million and about $323 million.
 sources:
-- url: https://www.immunebytes.com/blog/wormhole-bridge-hack-feb-2-2022-detailed-hack-analysis/
-  publisher: ImmuneBytes
+- url: https://www.certik.com/blog/wormhole-bridge-exploit-incident-analysis
+  publisher: CertiK
   type: analysis
-  accessed: '2026-10-04'
-  license_note: Linked only. The signature was taken from this page, then read with getTransaction.
+  accessed: '2026-10-06'
+  license_note: >-
+    Linked only. Prints the same attack signature that was read with getTransaction.
+    Replaces an ImmuneBytes page that returned 404 on 2026-10-06.
 - url: https://arstechnica.com/information-technology/2022/02/how-323-million-in-crypto-was-stolen-from-a-blockchain-bridge-called-wormhole/
   publisher: Ars Technica
   type: analysis
@@ -111,7 +113,8 @@ confidence:
   loss: medium
   date: high
   notes: >-
-    Signature from ImmuneBytes. On 2026-10-04, getTransaction on
+    Signature first taken from ImmuneBytes, a page that now returns 404. CertiK
+    prints the same signature. On 2026-10-04, getTransaction on
     https://api.mainnet-beta.solana.com returned slot 119025020, block time
     2022-02-02T17:58:04Z, err null. The invoked program and the account DF3NDR
     calls the forged sysvar are both account keys. https://solana-rpc.publicnode.com
