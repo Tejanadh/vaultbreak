@@ -3,6 +3,7 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     - cron: "17 3 * * 1"   # weekly: also re-checks every source link
 
@@ -61,7 +62,7 @@ jobs:
 
   link-check:
     # Network-dependent, so it never blocks a push; it runs on the weekly schedule and on demand.
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
